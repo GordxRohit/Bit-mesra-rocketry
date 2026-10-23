@@ -1,0 +1,2723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BIT Mesra SERD — Dawn Orbital Launch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030712;
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+        }
+
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass-panel {
+            background: rgba(8, 13, 26, 0.72);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+        }
+
+        /* Custom Scrubber Styling */
+        .scrubber-track {
+            position: relative;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: height 0.15s ease;
+        }
+
+        .scrubber-track:hover {
+            height: 9px;
+        }
+
+        .scrubber-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, #f97316, #fbbf24, #38bdf8);
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        .scrubber-thumb {
+            position: absolute;
+            top: 50%;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border: 2px solid #f97316;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 12px rgba(249, 115, 22, 0.9);
+            pointer-events: none;
+            transition: transform 0.12s ease;
+        }
+
+        .scrubber-track:hover .scrubber-thumb {
+            transform: translate(-50%, -50%) scale(1.25);
+        }
+
+        .event-marker {
+            position: absolute;
+            top: 50%;
+            width: 4px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.45);
+            border-radius: 2px;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            z-index: 5;
+        }
+
+        .event-marker:hover {
+            background: #fbbf24;
+            height: 14px;
+            width: 5px;
+            box-shadow: 0 0 8px #fbbf24;
+        }
+
+        .event-tooltip {
+            position: absolute;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 3px 7px;
+            border-radius: 5px;
+            font-size: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            color: #e2e8f0;
+        }
+
+        .event-marker:hover .event-tooltip {
+            opacity: 1;
+        }
+
+        .ui-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        .ui-transition {
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .live-dot {
+            animation: pulse-dot 1.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Top Telemetry & Campus Header -->
+    <div id="ui-top" class="ui-transition fixed top-3 left-3 right-3 md:top-5 md:left-6 md:right-6 z-20 flex flex-wrap items-start justify-between gap-3 pointer-events-none">
+        <!-- Mission / Location Badge -->
+        <div class="glass-panel rounded-xl px-4 py-2.5 pointer-events-auto flex items-center gap-3.5">
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 live-dot"></span>
+                    <span class="text-[11px] font-semibold uppercase tracking-widest text-amber-300/90">BIT Mesra • Ranchi (Rohit Kumar Mandal [ @gordxrohit ]</span>
+                </div>
+                <h1 class="text-xs md:text-sm font-bold text-white tracking-tight mt-0.5">
+                    Dept. of Space Engineering & Rocketry (SERD)
+                </h1>
+                <p class="text-[10px] text-slate-400 mono">23.4123° N, 85.4399° E • Subarnarekha Test Complex</p>
+            </div>
+            <div class="h-8 w-[1px] bg-white/10 hidden sm:block"></div>
+            <div class="hidden sm:flex flex-col">
+                <span class="text-[10px] uppercase tracking-wider text-slate-400">Mission Phase</span>
+                <span id="phase-label" class="text-xs font-semibold text-sky-300 mono">PAD ESTABLISHING</span>
+            </div>
+        </div>
+
+        <!-- Live Telemetry Readout -->
+        <div class="glass-panel rounded-xl px-4 py-2.5 pointer-events-auto flex items-center gap-4 md:gap-6">
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Mission Clock</div>
+                <div id="clock-readout" class="text-xs md:text-sm font-semibold text-white mono">T- 00:10.0</div>
+            </div>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Altitude</div>
+                <div id="alt-readout" class="text-xs md:text-sm font-semibold text-emerald-300 mono">0.0 km</div>
+            </div>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Velocity</div>
+                <div id="vel-readout" class="text-xs md:text-sm font-semibold text-amber-300 mono">0.00 km/s</div>
+            </div>
+            <div class="hidden md:block">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Camera Mode</div>
+                <div id="cam-readout" class="text-xs font-semibold text-slate-200 mono">AUTO DIRECTOR</div>
+            </div>
+            <button id="btn-audio" title="Toggle Procedural Launch Audio (M)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-[11px] font-semibold text-amber-200 transition">
+                <svg id="icon-sound-off" class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+                </svg>
+                <svg id="icon-sound-on" class="w-3.5 h-3.5 text-emerald-300 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                </svg>
+                <span id="audio-label">Enable Audio</span>
+            </button>
+            <button id="btn-reset-cam" title="Reset Camera to Auto Director" class="hidden px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-[11px] font-medium text-sky-200 transition">
+                Recenter Cam
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Timeline Scrubber & Controls -->
+    <div id="ui-bottom" class="ui-transition fixed bottom-3 left-3 right-3 md:bottom-5 md:left-6 md:right-6 z-20 flex flex-col gap-2 pointer-events-none">
+        <div class="glass-panel rounded-2xl p-3 md:px-5 md:py-3.5 pointer-events-auto max-w-5xl w-full mx-auto flex flex-col gap-2.5">
+            <!-- Scrubber Bar Row -->
+            <div class="relative flex items-center w-full py-1.5" id="scrubber-container">
+                <div class="scrubber-track w-full" id="scrubber-track">
+                    <div class="scrubber-fill" id="scrubber-fill" style="width: 0%;"></div>
+                    <!-- Event Markers Injected by JS -->
+                    <div id="markers-layer"></div>
+                    <div class="scrubber-thumb" id="scrubber-thumb" style="left: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Controls & Event Pills Row -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <!-- Left Transport Controls -->
+                <div class="flex items-center gap-2">
+                    <button id="btn-play" class="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/20 transition" title="Play / Pause (Space)">
+                        <svg id="icon-pause" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+                        </svg>
+                        <svg id="icon-play" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"></path>
+                        </svg>
+                    </button>
+
+                    <button id="btn-replay" class="flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-medium text-slate-200 transition" title="Replay Launch (R)">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>Replay</span>
+                    </button>
+
+                    <div class="text-xs mono text-slate-300 pl-2">
+                        <span id="time-current">00.0s</span>
+                        <span class="text-slate-500"> / </span>
+                        <span class="text-slate-400">46.0s</span>
+                    </div>
+                </div>
+
+                <!-- Quick Jump Stage Pills (Responsive Horizontal Scroll on Mobile/Tablet) -->
+                <div class="flex items-center gap-1.5 overflow-x-auto max-w-full py-0.5 no-scrollbar">
+                    <button data-seek="0" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Dawn Pad</button>
+                    <button data-seek="5" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Retract</button>
+                    <button data-seek="8" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Ignition</button>
+                    <button data-seek="10" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Liftoff</button>
+                    <button data-seek="23" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">MECO & Sep</button>
+                    <button data-seek="29.5" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Fairing</button>
+                    <button data-seek="35.5" class="seek-pill shrink-0 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-slate-300 border border-white/10 transition">Sat Deploy</button>
+                </div>
+
+                <!-- Right Utility Controls -->
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] text-slate-400 hidden sm:inline">Drag to orbit • Pinch/Scroll zoom</span>
+                    <button id="btn-hide-ui" class="px-3 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs font-medium text-slate-300 transition" title="Hide UI for clean recording (H)">
+                        Hide UI (H)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Restore UI Button (shown only when UI is hidden) -->
+    <button id="btn-restore-ui" class="ui-hidden ui-transition fixed bottom-4 right-4 z-30 glass-panel px-3.5 py-2 rounded-xl text-xs font-medium text-slate-200 hover:text-white border border-white/15 shadow-lg">
+        Show Controls (H)
+    </button>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // ============================================================================
+            // 1. TIMELINE & MATHEMATICAL UTILITIES
+            // ============================================================================
+            const TOTAL_DURATION = 46.0;
+
+            const TIMELINE_EVENTS = [
+                { time: 0.0, label: '0.0s • BIT Mesra Pre-Dawn Establishing' },
+                { time: 5.0, label: '5.0s • Strongback & Arms Retract' },
+                { time: 8.0, label: '8.0s • Stage 1 Main Engine Ignition' },
+                { time: 10.0, label: '10.0s • Liftoff & Pad Plume Surge' },
+                { time: 16.0, label: '16.0s • Supersonic Pitch & Gravity Turn' },
+                { time: 23.0, label: '23.0s • MECO & Stage 1 Separation' },
+                { time: 25.0, label: '25.0s • Second Stage Ignition (SES-1)' },
+                { time: 29.5, label: '29.5s • Payload Fairing Jettison' },
+                { time: 34.0, label: '34.0s • SECO-1 (Second Engine Cutoff)' },
+                { time: 35.5, label: '35.5s • MESRA-SAT-1 Deployment' },
+                { time: 37.5, label: '37.5s • Solar Array & Antenna Unfold' },
+                { time: 41.0, label: '41.0s • Orbital Sunrise Panorama' }
+            ];
+
+            function clamp(val, min, max) {
+                return Math.max(min, Math.min(max, val));
+            }
+
+            function lerp(a, b, t) {
+                return a + (b - a) * clamp(t, 0, 1);
+            }
+
+            function smoothstep(edge0, edge1, x) {
+                const t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+                return t * t * (3.0 - 2.0 * t);
+            }
+
+            function smootherstep(edge0, edge1, x) {
+                const t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+                return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+            }
+
+            // Deterministic pseudo-random helper for repeatable seeking
+            function hash11(n) {
+                const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+                return x - Math.floor(x);
+            }
+
+            // Analytical kinematics state for any time t in [0, 46]
+            function getFlightKinematics(t) {
+                let y = 0;
+                let z = 0;
+                let pitch = 0; // radians pitched toward +Z (downrange)
+                let roll = 0;
+
+                if (t <= 10.0) {
+                    // Vibration during engine ramp up (8s - 10s)
+                    if (t > 8.0) {
+                        const vib = smoothstep(8.0, 10.0, t) * 0.035;
+                        y = Math.sin(t * 95.0) * vib;
+                    }
+                } else {
+                    const dt = t - 10.0;
+                    // Smooth vertical climb curve + acceleration into upper atmosphere
+                    y = 1.95 * Math.pow(dt, 1.92) + 0.068 * Math.pow(dt, 3.05);
+                    // Gravity turn downrange along +Z
+                    const turnStart = Math.max(0, t - 13.5);
+                    z = 0.28 * Math.pow(turnStart, 2.35);
+                    pitch = smoothstep(13.0, 36.0, t) * 0.88; // tilts to ~50 deg by orbit
+                    roll = smoothstep(11.5, 19.0, t) * 0.45;  // roll program
+                }
+
+                // Space visual normalization factor (0 on pad -> 1 in high orbit)
+                const spaceFactor = clamp(smoothstep(14.5, 30.0, t), 0, 1);
+
+                // Display telemetry values (scaled to realistic orbital numbers)
+                let realAltKm = 0;
+                let realVelKms = 0;
+                if (t > 10.0) {
+                    const flightT = t - 10.0;
+                    realAltKm = 0.14 * Math.pow(flightT, 2.22);
+                    realVelKms = clamp(0.215 * Math.pow(flightT, 1.02), 0, 7.68);
+                    if (t > 34.0) {
+                        // Coasting in LEO at 7.68 km/s
+                        realVelKms = 7.68;
+                    }
+                }
+
+                return { y, z, pitch, roll, spaceFactor, realAltKm, realVelKms };
+            }
+
+            // ============================================================================
+            // 2. PROCEDURAL TEXTURES (NO EXTERNAL ASSETS NEEDED)
+            // ============================================================================
+            function createSignageTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1024;
+                canvas.height = 192;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 34px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BIRLA INSTITUTE OF TECHNOLOGY, MESRA • RANCHI', canvas.width / 2, 68);
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '600 42px Inter, sans-serif';
+                ctx.fillText('DEPT. OF SPACE ENGINEERING & ROCKETRY (SERD)', canvas.width / 2, 128);
+
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '500 22px monospace';
+                ctx.fillText('ESTABLISHED 1964 • SOLID & LIQUID PROPULSION COMPLEX', canvas.width / 2, 166);
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.anisotropy = 4;
+                return tex;
+            }
+
+            function createRocketBodyTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 1024;
+                const ctx = canvas.getContext('2d');
+
+                // Base satin white aerospace thermal coat
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(0, 0, 512, 1024);
+
+                // Subtle vertical panel seams & weld lines
+                ctx.strokeStyle = 'rgba(100, 116, 139, 0.28)';
+                ctx.lineWidth = 2;
+                for (let x = 64; x < 512; x += 64) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, 1024);
+                    ctx.stroke();
+                }
+                for (let y = 80; y < 1024; y += 96) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(512, y);
+                    ctx.stroke();
+                }
+
+                // Roll pattern checks (black/dark-slate bands)
+                ctx.fillStyle = '#0f172a';
+                for (let i = 0; i < 8; i++) {
+                    if (i % 2 === 0) {
+                        ctx.fillRect(i * 64, 60, 64, 55);
+                        ctx.fillRect(i * 64, 880, 64, 48);
+                    }
+                }
+
+                // Saffron & India Green accent stripes
+                ctx.fillStyle = '#ea580c';
+                ctx.fillRect(0, 145, 512, 18);
+                ctx.fillStyle = '#16a34a';
+                ctx.fillRect(0, 175, 512, 14);
+
+                // Vertical lettering on two sides
+                ctx.save();
+                ctx.translate(160, 520);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 40px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BIT MESRA • SERD', 0, 0);
+                ctx.restore();
+
+                ctx.save();
+                ctx.translate(416, 520);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 40px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BIT MESRA • SERD', 0, 0);
+                ctx.restore();
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.anisotropy = 4;
+                return tex;
+            }
+
+            function createSoftParticleTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+
+                const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
+                grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+                grad.addColorStop(0.35, 'rgba(245, 245, 250, 0.72)');
+                grad.addColorStop(0.7, 'rgba(210, 218, 230, 0.25)');
+                grad.addColorStop(1.0, 'rgba(180, 190, 210, 0.0)');
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            function createConcreteTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Weathering & blast apron scorch marks
+                for (let i = 0; i < 3500; i++) {
+                    const x = (hash11(i * 1.13) * 512) | 0;
+                    const y = (hash11(i * 2.71) * 512) | 0;
+                    const v = 40 + ((hash11(i * 3.19) * 35) | 0);
+                    ctx.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
+                    ctx.fillRect(x, y, 3, 3);
+                }
+
+                // Expansion joints grid
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+                ctx.lineWidth = 2;
+                for (let p = 0; p <= 512; p += 64) {
+                    ctx.beginPath();
+                    ctx.moveTo(p, 0); ctx.lineTo(p, 512);
+                    ctx.moveTo(0, p); ctx.lineTo(512, p);
+                    ctx.stroke();
+                }
+
+                // Central blast pit darkening
+                const scorch = ctx.createRadialGradient(256, 256, 15, 256, 256, 190);
+                scorch.addColorStop(0, 'rgba(10, 12, 18, 0.85)');
+                scorch.addColorStop(0.5, 'rgba(20, 24, 33, 0.45)');
+                scorch.addColorStop(1, 'rgba(30, 41, 59, 0.0)');
+                ctx.fillStyle = scorch;
+                ctx.fillRect(0, 0, 512, 512);
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                return tex;
+            }
+
+            // ============================================================================
+            // 3. SCENE, RENDERER & ATMOSPHERIC SKY SETUP
+            // ============================================================================
+            const container = document.getElementById('canvas-container');
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0c162c, 0.0022);
+
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.25, 25000);
+
+            // Sky Dome Shader (Pre-dawn dark blue -> warm golden horizon -> deep black space)
+            const skyGeo = new THREE.SphereGeometry(14000, 64, 48);
+            const skyMat = new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                depthWrite: false,
+                uniforms: {
+                    uSunDir: { value: new THREE.Vector3(0.85, 0.05, -0.5).normalize() },
+                    uSpaceFactor: { value: 0.0 },
+                    uDawnFactor: { value: 0.0 },
+                    uTime: { value: 0.0 }
+                },
+                vertexShader: `
+                    varying vec3 vWorldDir;
+                    void main() {
+                        vec4 wp = modelMatrix * vec4(position, 1.0);
+                        vWorldDir = normalize(position);
+                        gl_Position = projectionMatrix * viewMatrix * wp;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vWorldDir;
+                    uniform vec3 uSunDir;
+                    uniform float uSpaceFactor;
+                    uniform float uDawnFactor;
+                    uniform float uTime;
+
+                    float hash(vec2 p) {
+                        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+                    }
+
+                    void main() {
+                        vec3 dir = normalize(vWorldDir);
+                        float elev = clamp(dir.y, -0.25, 1.0);
+
+                        // Rayleigh & Mie inspired atmospheric scattering gradient
+                        vec3 zenithPreDawn = vec3(0.01, 0.024, 0.075);
+                        vec3 zenithSunrise = vec3(0.045, 0.14, 0.36);
+                        vec3 zenithCol = mix(zenithPreDawn, zenithSunrise, uDawnFactor);
+
+                        vec3 midSkyPreDawn = vec3(0.04, 0.07, 0.16);
+                        vec3 midSkySunrise = vec3(0.28, 0.22, 0.38);
+                        vec3 midSkyCol = mix(midSkyPreDawn, midSkySunrise, uDawnFactor);
+
+                        vec3 horizPreDawn = vec3(0.14, 0.16, 0.28);
+                        vec3 horizSunrise = vec3(0.98, 0.44, 0.14);
+                        vec3 horizCol = mix(horizPreDawn, horizSunrise, uDawnFactor);
+
+                        float hMix1 = smoothstep(0.0, 0.32, clamp(elev, 0.0, 1.0));
+                        float hMix2 = smoothstep(0.25, 0.9, clamp(elev, 0.0, 1.0));
+                        vec3 skyCol = mix(horizCol, midSkyCol, hMix1);
+                        skyCol = mix(skyCol, zenithCol, hMix2);
+
+                        // Directional Mie sun scattering & solar corona
+                        vec3 sunNormal = normalize(uSunDir);
+                        float sunAlignment = max(dot(dir, sunNormal), 0.0);
+                        vec3 mieHalo = vec3(1.0, 0.52, 0.18) * pow(sunAlignment, 8.0) * (0.45 + 0.85 * uDawnFactor);
+                        vec3 innerCorona = vec3(1.0, 0.82, 0.55) * pow(sunAlignment, 64.0) * (0.6 + 0.9 * uDawnFactor);
+                        vec3 sunDisk = vec3(1.0, 0.97, 0.88) * smoothstep(0.9985, 0.9996, sunAlignment) * 2.2;
+
+                        skyCol += (mieHalo + innerCorona) * (1.0 - 0.72 * uSpaceFactor);
+
+                        // Subtle Milky Way galactic band & deep space nebula when in orbit
+                        float galPlane = exp(-pow((dir.y * 0.7 - dir.x * 0.5 + 0.15) * 3.8, 2.0));
+                        vec3 milkyWay = vec3(0.05, 0.07, 0.13) * galPlane * uSpaceFactor * 0.65;
+
+                        // Transition to deep space black at high altitude
+                        vec3 finalSky = mix(skyCol, vec3(0.001, 0.002, 0.006) + milkyWay, uSpaceFactor);
+                        finalSky += sunDisk;
+
+                        gl_FragColor = vec4(finalSky, 1.0);
+                    }
+                `
+            });
+            const skyDome = new THREE.Mesh(skyGeo, skyMat);
+            scene.add(skyDome);
+
+            // Starfield (fades in as rocket climbs out of atmosphere)
+            const starCount = 2600;
+            const starGeo = new THREE.BufferGeometry();
+            const starPositions = new Float32Array(starCount * 3);
+            const starColors = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount; i++) {
+                const theta = hash11(i * 4.1) * Math.PI * 2;
+                const phi = Math.acos(2 * hash11(i * 7.3) - 1);
+                const r = 11500;
+                starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                starPositions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 150; // mostly upper hemisphere
+                starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+                const tint = hash11(i * 9.7);
+                starColors[i * 3] = 0.85 + 0.15 * tint;
+                starColors[i * 3 + 1] = 0.88 + 0.12 * (1 - tint);
+                starColors[i * 3 + 2] = 1.0;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+            const starMat = new THREE.PointsMaterial({
+                size: 26,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.25,
+                depthWrite: false
+            });
+            const starField = new THREE.Points(starGeo, starMat);
+            scene.add(starField);
+
+            // ============================================================================
+            // 4. LIGHTING SYSTEM (PRE-DAWN -> IGNITION -> ORBITAL SUNRISE)
+            // ============================================================================
+            const hemiLight = new THREE.HemisphereLight(0x3b5998, 0x111827, 0.45);
+            scene.add(hemiLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffb478, 0.6);
+            sunLight.position.set(180, 28, -110);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 10;
+            sunLight.shadow.camera.far = 450;
+            const d = 85;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            sunLight.shadow.bias = -0.0005;
+            scene.add(sunLight);
+
+            // Dynamic Engine Ignition Light (illuminates pad, building walls, and ground)
+            const ignitionLight = new THREE.PointLight(0xff7b1a, 0, 160, 1.6);
+            ignitionLight.position.set(0, 4, 0);
+            scene.add(ignitionLight);
+
+            // Secondary bounce light on building facade during liftoff
+            const padBounceLight = new THREE.PointLight(0xffaa44, 0, 120, 1.8);
+            padBounceLight.position.set(-15, 12, -10);
+            scene.add(padBounceLight);
+
+            // Pad Floodlights illuminating the rocket before ignition
+            const padSpot1 = new THREE.SpotLight(0xdbeafe, 1.8, 95, Math.PI / 4, 0.45, 1.2);
+            padSpot1.position.set(22, 2.2, 22);
+            padSpot1.target.position.set(0, 14, 0);
+            scene.add(padSpot1);
+            scene.add(padSpot1.target);
+
+            const padSpot2 = new THREE.SpotLight(0xdbeafe, 1.6, 95, Math.PI / 4, 0.45, 1.2);
+            padSpot2.position.set(-22, 2.2, 20);
+            padSpot2.target.position.set(0, 15, 0);
+            scene.add(padSpot2);
+            scene.add(padSpot2.target);
+
+            // ============================================================================
+            // 5. BIT MESRA RANCHI CAMPUS & LAUNCH COMPLEX ARCHITECTURE
+            // ============================================================================
+            const campusGroup = new THREE.Group();
+            scene.add(campusGroup);
+
+            // Shared Materials
+            const matCampusGrass = new THREE.MeshStandardMaterial({
+                color: 0x19281f,
+                roughness: 0.94,
+                metalness: 0.02
+            });
+            const matLateriteSoil = new THREE.MeshStandardMaterial({
+                color: 0x3b2820, // Ranchi Chota Nagpur red laterite earth
+                roughness: 0.92,
+                metalness: 0.04
+            });
+            const matConcrete = new THREE.MeshStandardMaterial({
+                map: createConcreteTexture(),
+                roughness: 0.82,
+                metalness: 0.08
+            });
+            const matDarkConcrete = new THREE.MeshStandardMaterial({
+                color: 0x263142,
+                roughness: 0.85,
+                metalness: 0.1
+            });
+            const matWallCream = new THREE.MeshStandardMaterial({
+                color: 0xd6d1c4,
+                roughness: 0.78,
+                metalness: 0.05
+            });
+            const matTerracottaBrick = new THREE.MeshStandardMaterial({
+                color: 0x8c3b2b,
+                roughness: 0.82,
+                metalness: 0.06
+            });
+            const matSteelDark = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                roughness: 0.42,
+                metalness: 0.78
+            });
+            const matSteelLight = new THREE.MeshStandardMaterial({
+                color: 0x94a3b8,
+                roughness: 0.35,
+                metalness: 0.82
+            });
+            const matSafetyYellow = new THREE.MeshStandardMaterial({
+                color: 0xeab308,
+                roughness: 0.4,
+                metalness: 0.35
+            });
+            const matCryoWhite = new THREE.MeshStandardMaterial({
+                color: 0xe2e8f0,
+                roughness: 0.3,
+                metalness: 0.25
+            });
+            const matWindowLit = new THREE.MeshStandardMaterial({
+                color: 0xfef3c7,
+                emissive: 0xf59e0b,
+                emissiveIntensity: 0.95,
+                roughness: 0.2
+            });
+            const matWindowDark = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.15,
+                metalness: 0.85
+            });
+
+            // 5.1 Ranchi Campus Terrain & Chota Nagpur Plateau Hills
+            const groundGeo = new THREE.CircleGeometry(1400, 64);
+            groundGeo.rotateX(-Math.PI / 2);
+            const groundMesh = new THREE.Mesh(groundGeo, matCampusGrass);
+            groundMesh.receiveShadow = true;
+            campusGroup.add(groundMesh);
+
+            // Laterite dirt clearing around the concrete launch complex
+            const clearingGeo = new THREE.CylinderGeometry(85, 92, 0.18, 48);
+            const clearingMesh = new THREE.Mesh(clearingGeo, matLateriteSoil);
+            clearingMesh.position.y = 0.05;
+            clearingMesh.receiveShadow = true;
+            campusGroup.add(clearingMesh);
+
+            // Distant Ranchi hills ring
+            for (let i = 0; i < 28; i++) {
+                const ang = (i / 28) * Math.PI * 2;
+                const dist = 520 + hash11(i * 3.1) * 280;
+                const radius = 90 + hash11(i * 5.7) * 110;
+                const height = 22 + hash11(i * 2.3) * 45;
+                const hillGeo = new THREE.ConeGeometry(radius, height, 7);
+                const hillMesh = new THREE.Mesh(hillGeo, matCampusGrass);
+                hillMesh.position.set(Math.cos(ang) * dist, height * 0.42, Math.sin(ang) * dist);
+                hillMesh.rotation.y = hash11(i) * Math.PI;
+                campusGroup.add(hillMesh);
+            }
+
+            // Subarnarekha Sal & Pine Tree Clusters around BIT Mesra perimeter
+            const treeTrunkGeo = new THREE.CylinderGeometry(0.22, 0.35, 2.2, 6);
+            const treeCrownGeo = new THREE.ConeGeometry(1.9, 5.5, 7);
+            const matTreeFoliage = new THREE.MeshStandardMaterial({ color: 0x132a1c, roughness: 0.9 });
+            const matTrunk = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.95 });
+
+            for (let i = 0; i < 140; i++) {
+                const angle = hash11(i * 11.3) * Math.PI * 2;
+                const radius = 78 + hash11(i * 19.7) * 180;
+                const tx = Math.cos(angle) * radius;
+                const tz = Math.sin(angle) * radius;
+
+                // Keep road corridor clear
+                if (Math.abs(tx + 25) < 12 && tz < 60 && tz > -60) continue;
+
+                const s = 0.8 + hash11(i * 4.9) * 0.9;
+                const tree = new THREE.Group();
+                const trunk = new THREE.Mesh(treeTrunkGeo, matTrunk);
+                trunk.position.y = 1.1;
+                const crown = new THREE.Mesh(treeCrownGeo, matTreeFoliage);
+                crown.position.y = 4.2;
+                tree.add(trunk, crown);
+                tree.scale.setScalar(s);
+                tree.position.set(tx, 0, tz);
+                campusGroup.add(tree);
+            }
+
+            // 5.2 Concrete Launch Pad Apron, Flame Trench & Exhaust Deflector
+            const padGroup = new THREE.Group();
+            campusGroup.add(padGroup);
+
+            // Outer blast apron
+            const apronGeo = new THREE.BoxGeometry(58, 0.4, 58);
+            const apronMesh = new THREE.Mesh(apronGeo, matConcrete);
+            apronMesh.position.set(0, 0.2, 0);
+            apronMesh.receiveShadow = true;
+            padGroup.add(apronMesh);
+
+            // Elevated octagonal concrete pad pedestal with blast trench split
+            const padLeft = new THREE.Mesh(new THREE.BoxGeometry(9.5, 2.0, 24), matConcrete);
+            padLeft.position.set(-7.25, 1.2, 0);
+            padLeft.castShadow = true;
+            padLeft.receiveShadow = true;
+            padGroup.add(padLeft);
+
+            const padRight = new THREE.Mesh(new THREE.BoxGeometry(9.5, 2.0, 24), matConcrete);
+            padRight.position.set(7.25, 1.2, 0);
+            padRight.castShadow = true;
+            padRight.receiveShadow = true;
+            padGroup.add(padRight);
+
+            // Flame deflector wedge inside trench
+            const wedgeGeo = new THREE.CylinderGeometry(2.4, 2.4, 4.8, 3);
+            wedgeGeo.rotateZ(Math.PI / 2);
+            const wedgeMesh = new THREE.Mesh(wedgeGeo, matSteelDark);
+            wedgeMesh.position.set(0, 1.1, 0);
+            padGroup.add(wedgeMesh);
+
+            // Steel launch ring & 4 hold-down clamps over trench
+            const ringPedestal = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.45, 0.55, 24), matSteelDark);
+            ringPedestal.position.set(0, 2.25, 0);
+            padGroup.add(ringPedestal);
+
+            for (let i = 0; i < 4; i++) {
+                const a = (i * Math.PI) / 2 + Math.PI / 4;
+                const clampMount = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.6, 1.1), matSafetyYellow);
+                clampMount.position.set(Math.cos(a) * 1.65, 2.6, Math.sin(a) * 1.65);
+                clampMount.rotation.y = -a;
+                padGroup.add(clampMount);
+            }
+
+            // Concrete blast wall between pad and SERD building
+            const blastWall = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.6, 30), matDarkConcrete);
+            blastWall.position.set(-16.5, 2.0, -2);
+            blastWall.castShadow = true;
+            blastWall.receiveShadow = true;
+            padGroup.add(blastWall);
+
+            // Access Road & Cable Tray connecting SERD Building to Pad
+            const accessRoad = new THREE.Mesh(new THREE.BoxGeometry(36, 0.26, 8), matDarkConcrete);
+            accessRoad.position.set(-22, 0.14, 14);
+            accessRoad.receiveShadow = true;
+            padGroup.add(accessRoad);
+
+            // Pipe & Cryogenic Propellant Bridge from Building/Tanks to Pad
+            const pipeRunGeo = new THREE.CylinderGeometry(0.18, 0.18, 28, 12);
+            pipeRunGeo.rotateZ(Math.PI / 2);
+            for (let p = 0; p < 3; p++) {
+                const pipe = new THREE.Mesh(pipeRunGeo, matSteelLight);
+                pipe.position.set(-14, 1.1 + p * 0.45, -8.5);
+                padGroup.add(pipe);
+            }
+
+            // Safety Railings around the elevated concrete pad perimeter
+            function createRailingSegment(x1, z1, x2, z2, yBase) {
+                const g = new THREE.Group();
+                const dx = x2 - x1;
+                const dz = z2 - z1;
+                const len = Math.hypot(dx, dz);
+                const angle = Math.atan2(dz, dx);
+
+                const topBar = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.08), matSafetyYellow);
+                topBar.position.y = 1.05;
+                const midBar = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, 0.06), matSafetyYellow);
+                midBar.position.y = 0.55;
+                g.add(topBar, midBar);
+
+                const posts = Math.max(2, Math.floor(len / 2.5));
+                for (let i = 0; i <= posts; i++) {
+                    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), matSafetyYellow);
+                    post.position.set(-len / 2 + (i / posts) * len, 0.55, 0);
+                    g.add(post);
+                }
+
+                g.position.set((x1 + x2) / 2, yBase, (z1 + z2) / 2);
+                g.rotation.y = -angle;
+                return g;
+            }
+
+            padGroup.add(createRailingSegment(-11.8, -11.8, -11.8, 11.8, 2.2));
+            padGroup.add(createRailingSegment(11.8, -11.8, 11.8, 11.8, 2.2));
+            padGroup.add(createRailingSegment(-11.8, 11.8, -2.8, 11.8, 2.2));
+            padGroup.add(createRailingSegment(2.8, 11.8, 11.8, 11.8, 2.2));
+
+            // 5.3 BIT Mesra Space Engineering & Rocketry Department (SERD) Main Building
+            const serdBuilding = new THREE.Group();
+            serdBuilding.position.set(-38, 0, -14);
+            campusGroup.add(serdBuilding);
+
+            // Main Academic & Propulsion Lab Wing
+            const mainWing = new THREE.Mesh(new THREE.BoxGeometry(28, 12.5, 18), matWallCream);
+            mainWing.position.set(0, 6.25, 0);
+            mainWing.castShadow = true;
+            mainWing.receiveShadow = true;
+            serdBuilding.add(mainWing);
+
+            // Terracotta red brick architectural accent columns (classic BIT Mesra style)
+            for (let x = -12; x <= 12; x += 6) {
+                const pilaster = new THREE.Mesh(new THREE.BoxGeometry(1.2, 12.8, 18.4), matTerracottaBrick);
+                pilaster.position.set(x, 6.4, 0);
+                pilaster.castShadow = true;
+                serdBuilding.add(pilaster);
+            }
+
+            // Roof cornice & parapet
+            const parapet = new THREE.Mesh(new THREE.BoxGeometry(29.2, 1.1, 19.2), matTerracottaBrick);
+            parapet.position.set(0, 12.8, 0);
+            serdBuilding.add(parapet);
+
+            // Mission Control & Telemetry Glass Observation Bay facing the launch pad (+X side)
+            const controlBay = new THREE.Mesh(new THREE.BoxGeometry(6.5, 4.2, 12), matDarkConcrete);
+            controlBay.position.set(14.2, 9.2, 1.5);
+            controlBay.castShadow = true;
+            serdBuilding.add(controlBay);
+
+            const controlGlass = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 10.6), matWindowLit);
+            controlGlass.position.set(17.4, 9.3, 1.5);
+            serdBuilding.add(controlGlass);
+
+            // Entrance Portico & Pillars
+            const porticoRoof = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.6, 7.5), matTerracottaBrick);
+            porticoRoof.position.set(15.2, 4.4, -3.5);
+            serdBuilding.add(porticoRoof);
+
+            for (let zOff of [-6.5, -0.5]) {
+                const col = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 4.4, 12), matWallCream);
+                col.position.set(17.2, 2.2, zOff);
+                serdBuilding.add(col);
+            }
+
+            // Illuminated BIT Mesra SERD Signage Board on Roofline facing Launch Pad
+            const signBoard = new THREE.Mesh(
+                new THREE.PlaneGeometry(15.5, 2.9),
+                new THREE.MeshBasicMaterial({ map: createSignageTexture() })
+            );
+            signBoard.position.set(14.15, 14.8, 0);
+            signBoard.rotation.y = Math.PI / 2;
+            serdBuilding.add(signBoard);
+
+            const signBacking = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.1, 15.8), matSteelDark);
+            signBacking.position.set(13.9, 14.8, 0);
+            serdBuilding.add(signBacking);
+
+            // Windows along building facades
+            for (let floor = 0; floor < 2; floor++) {
+                for (let w = -10; w <= 10; w += 4) {
+                    const isLit = (w + floor) % 3 === 0;
+                    const winMat = isLit ? matWindowLit : matWindowDark;
+                    const winFront = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.8, 0.2), winMat);
+                    winFront.position.set(w, 3.6 + floor * 4.5, 9.05);
+                    serdBuilding.add(winFront);
+                }
+            }
+
+            // Rooftop Telemetry Dish, Radar Dome & Comms Mast on SERD Building
+            const radome = new THREE.Mesh(new THREE.SphereGeometry(2.1, 20, 16), matCryoWhite);
+            radome.position.set(-7, 14.5, -3);
+            serdBuilding.add(radome);
+
+            const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2.2, 12), matSteelDark);
+            dishBase.position.set(6, 14.2, -4);
+            serdBuilding.add(dishBase);
+
+            const dishBowl = new THREE.Mesh(
+                new THREE.SphereGeometry(2.2, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+                matCryoWhite
+            );
+            dishBowl.position.set(6, 15.6, -4);
+            dishBowl.rotation.x = -Math.PI * 0.65;
+            dishBowl.rotation.z = -0.4;
+            serdBuilding.add(dishBowl);
+
+            // Subsonic/Supersonic Wind Tunnel & Rocket Test Annex behind main building
+            const annex = new THREE.Mesh(new THREE.BoxGeometry(18, 7.5, 12), matWallCream);
+            annex.position.set(-4, 3.75, -17);
+            annex.castShadow = true;
+            serdBuilding.add(annex);
+
+            // 5.4 Liquid Oxygen (LOX) & RP-1 Storage Tanks + Water Deluge Tower
+            const tankFarm = new THREE.Group();
+            tankFarm.position.set(-19, 0, -24);
+            campusGroup.add(tankFarm);
+
+            for (let tIdx = 0; tIdx < 2; tIdx++) {
+                const tank = new THREE.Group();
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 9.5, 24), matCryoWhite);
+                cyl.castShadow = true;
+                const cap1 = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 16), matCryoWhite);
+                cap1.position.y = 4.75;
+                const cap2 = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 16), matCryoWhite);
+                cap2.position.y = -4.75;
+                tank.add(cyl, cap1, cap2);
+                tank.rotation.z = Math.PI / 2;
+                tank.position.set(0, 3.2, tIdx * 6.2);
+                tankFarm.add(tank);
+            }
+
+            // Tall Water Deluge / Sound Suppression Tank
+            const waterTower = new THREE.Group();
+            waterTower.position.set(22, 0, -22);
+            const wtTank = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 6.5, 24), matCryoWhite);
+            wtTank.position.y = 17.5;
+            wtTank.castShadow = true;
+            waterTower.add(wtTank);
+            for (let l = 0; l < 4; l++) {
+                const a = (l * Math.PI) / 2 + Math.PI / 4;
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 15, 10), matSteelDark);
+                leg.position.set(Math.cos(a) * 2.2, 7.5, Math.sin(a) * 2.2);
+                waterTower.add(leg);
+            }
+            campusGroup.add(waterTower);
+
+            // 5.5 Launch Support Umbilical Tower (LUT), Ladders, Pipes, Strongback & Service Arms
+            const towerGroup = new THREE.Group();
+            towerGroup.position.set(0, 2.2, -5.8); // rooted on the concrete pad behind the rocket
+            padGroup.add(towerGroup);
+
+            const towerHeight = 30.0;
+            const towerWidth = 3.2;
+
+            // 4 Vertical Steel Corner Columns
+            const colGeo = new THREE.BoxGeometry(0.32, towerHeight, 0.32);
+            const cornerOffsets = [
+                [-towerWidth / 2, -towerWidth / 2],
+                [towerWidth / 2, -towerWidth / 2],
+                [-towerWidth / 2, towerWidth / 2],
+                [towerWidth / 2, towerWidth / 2]
+            ];
+            cornerOffsets.forEach(([cx, cz]) => {
+                const col = new THREE.Mesh(colGeo, matSteelDark);
+                col.position.set(cx, towerHeight / 2, cz);
+                col.castShadow = true;
+                towerGroup.add(col);
+            });
+
+            // Horizontal platforms, safety railings, diagonal truss bracing & access ladder
+            const levels = 9;
+            const levelH = towerHeight / levels;
+            for (let i = 0; i < levels; i++) {
+                const y0 = i * levelH;
+                const y1 = (i + 1) * levelH;
+                const ym = (y0 + y1) * 0.5;
+
+                // Platform deck every 2 levels
+                if (i > 0 && i % 2 === 0) {
+                    const deck = new THREE.Mesh(new THREE.BoxGeometry(towerWidth + 0.5, 0.16, towerWidth + 0.5), matSteelLight);
+                    deck.position.set(0, y0, 0);
+                    towerGroup.add(deck);
+
+                    const rail = new THREE.Mesh(new THREE.BoxGeometry(towerWidth + 0.6, 0.08, towerWidth + 0.6), matSafetyYellow);
+                    rail.position.set(0, y0 + 0.9, 0);
+                    towerGroup.add(rail);
+                }
+
+                // Cross beams
+                const beamF = new THREE.Mesh(new THREE.BoxGeometry(towerWidth, 0.18, 0.18), matSteelDark);
+                beamF.position.set(0, y1, towerWidth / 2);
+                const beamB = beamF.clone();
+                beamB.position.set(0, y1, -towerWidth / 2);
+                towerGroup.add(beamF, beamB);
+
+                // Diagonal bracing
+                const diagLen = Math.hypot(towerWidth, levelH);
+                const diagAng = Math.atan2(levelH, towerWidth);
+                const diag = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.12, 0.12), matSteelDark);
+                diag.position.set(0, ym, towerWidth / 2);
+                diag.rotation.z = (i % 2 === 0) ? diagAng : -diagAng;
+                towerGroup.add(diag);
+
+                const diagSide = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, diagLen), matSteelDark);
+                diagSide.position.set(-towerWidth / 2, ym, 0);
+                diagSide.rotation.x = (i % 2 === 0) ? diagAng : -diagAng;
+                towerGroup.add(diagSide);
+            }
+
+            // Vertical Access Ladder with Safety Cage on Side of Tower
+            const ladderGroup = new THREE.Group();
+            ladderGroup.position.set(towerWidth / 2 + 0.35, 0, 0);
+            for (let r = 0.5; r < towerHeight - 1; r += 0.55) {
+                const rung = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.55), matSafetyYellow);
+                rung.position.set(0, r, 0);
+                ladderGroup.add(rung);
+            }
+            towerGroup.add(ladderGroup);
+
+            // Vertical Fuel/Oxidizer Standpipes attached to Tower
+            for (let pOffset of [-0.9, -0.45, 0.45]) {
+                const vPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, towerHeight - 2, 10), matSteelLight);
+                vPipe.position.set(pOffset, (towerHeight - 2) / 2, towerWidth / 2 + 0.15);
+                towerGroup.add(vPipe);
+            }
+
+            // Lightning Arrestor Mast atop the Umbilical Tower
+            const lightningMast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.18, 6.5, 10), matSteelLight);
+            lightningMast.position.set(0, towerHeight + 3.25, 0);
+            towerGroup.add(lightningMast);
+
+            // Retracting Strongback Cradle (pivots backward at base between t = 5s and t = 8s)
+            const strongbackPivot = new THREE.Group();
+            strongbackPivot.position.set(0, 0.4, towerWidth / 2 + 0.4); // hinged near front base of tower
+            towerGroup.add(strongbackPivot);
+
+            const sbHeight = 23.5;
+            const sbArmL = new THREE.Mesh(new THREE.BoxGeometry(0.35, sbHeight, 0.45), matSteelLight);
+            sbArmL.position.set(-0.95, sbHeight / 2, 1.35);
+            const sbArmR = new THREE.Mesh(new THREE.BoxGeometry(0.35, sbHeight, 0.45), matSteelLight);
+            sbArmR.position.set(0.95, sbHeight / 2, 1.35);
+            strongbackPivot.add(sbArmL, sbArmR);
+
+            for (let y = 3; y <= sbHeight; y += 3.5) {
+                const cross = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.25, 0.4), matSteelDark);
+                cross.position.set(0, y, 1.35);
+                strongbackPivot.add(cross);
+            }
+            // Upper clamp ring collar that hugs the rocket before retraction
+            const sbCollar = new THREE.Mesh(
+                new THREE.TorusGeometry(1.38, 0.14, 10, 24, Math.PI * 1.15),
+                matSafetyYellow
+            );
+            sbCollar.rotation.x = Math.PI / 2;
+            sbCollar.rotation.z = -0.25;
+            sbCollar.position.set(0, 21.0, 3.8);
+            strongbackPivot.add(sbCollar);
+
+            // Swing-out Umbilical Service Arms (Upper Fairing/Stage-2 Arm & Mid Interstage Arm)
+            function createSwingArm(yHeight, length) {
+                const pivot = new THREE.Group();
+                pivot.position.set(towerWidth / 2, yHeight, towerWidth / 2);
+
+                const armBoom = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.45, length), matSafetyYellow);
+                armBoom.position.set(-0.4, 0, length / 2);
+                const umbilicalHead = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 0.65), matSteelLight);
+                umbilicalHead.position.set(-1.1, 0, length);
+
+                pivot.add(armBoom, umbilicalHead);
+                return pivot;
+            }
+
+            const serviceArmLower = createSwingArm(13.2, 3.8);
+            const serviceArmUpper = createSwingArm(19.6, 3.8);
+            towerGroup.add(serviceArmLower, serviceArmUpper);
+
+            // 4 Perimeter Floodlight Towers & Red Warning Beacons
+            const beaconMeshes = [];
+            const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff1e1e });
+
+            function addBeacon(parent, x, y, z) {
+                const b = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), beaconMat);
+                b.position.set(x, y, z);
+                parent.add(b);
+                beaconMeshes.push(b);
+            }
+
+            // Beacons on Umbilical Tower, Water Tower & SERD Building Roof
+            addBeacon(towerGroup, -towerWidth / 2, towerHeight + 0.3, towerWidth / 2);
+            addBeacon(towerGroup, towerWidth / 2, towerHeight + 0.3, towerWidth / 2);
+            addBeacon(towerGroup, 0, towerHeight + 6.6, 0);
+            addBeacon(waterTower, 0, 21.2, 0);
+            addBeacon(serdBuilding, 14, 13.6, 8.8);
+            addBeacon(serdBuilding, 14, 13.6, -8.8);
+
+            // Floodlight Stanchions at corners of concrete pad
+            const floodPositions = [
+                [21, 21],
+                [-21, 21],
+                [21, -21],
+                [-21, -21]
+            ];
+            const floodlampMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe });
+            floodPositions.forEach(([fx, fz]) => {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, 8.5, 8), matSteelDark);
+                post.position.set(fx, 4.25, fz);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 0.4), floodlampMat);
+                head.position.set(fx, 8.6, fz);
+                head.lookAt(0, 12, 0);
+                padGroup.add(post, head);
+            });
+
+            // ============================================================================
+            // 6. MULTISTAGE ROCKET, SEPARATING FAIRINGS & DEPLOYABLE SATELLITE
+            // ============================================================================
+            const rocketRoot = new THREE.Group();
+            rocketRoot.position.set(0, 2.5, 0); // sits cleanly on the pad launch ring
+            scene.add(rocketRoot);
+
+            const matRocketSkin = new THREE.MeshStandardMaterial({
+                map: createRocketBodyTexture(),
+                roughness: 0.32,
+                metalness: 0.18
+            });
+            const matRocketWhite = new THREE.MeshStandardMaterial({
+                color: 0xf1f5f9,
+                roughness: 0.32,
+                metalness: 0.18
+            });
+            const matCarbonInterstage = new THREE.MeshStandardMaterial({
+                color: 0x181f2c,
+                roughness: 0.48,
+                metalness: 0.45
+            });
+            const matMetallicRing = new THREE.MeshStandardMaterial({
+                color: 0x94a3b8,
+                roughness: 0.25,
+                metalness: 0.88
+            });
+            const matNozzleBell = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                roughness: 0.35,
+                metalness: 0.85,
+                emissive: 0xff4500,
+                emissiveIntensity: 0.0
+            });
+            const matVacNozzleBell = new THREE.MeshStandardMaterial({
+                color: 0x475569,
+                roughness: 0.3,
+                metalness: 0.88,
+                emissive: 0xff5500,
+                emissiveIntensity: 0.0
+            });
+            const matGoldFoil = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                roughness: 0.24,
+                metalness: 0.92
+            });
+            const matSolarCell = new THREE.MeshStandardMaterial({
+                color: 0x1d4ed8,
+                roughness: 0.2,
+                metalness: 0.65,
+                emissive: 0x0c2461,
+                emissiveIntensity: 0.35
+            });
+
+            // --- 6.1 FIRST STAGE BOOSTER GROUP (y = 0 to 15.0 in rocket frame) ---
+            const stage1Group = new THREE.Group();
+            rocketRoot.add(stage1Group);
+
+            const R_BODY = 1.12;
+            const s1Body = new THREE.Mesh(new THREE.CylinderGeometry(R_BODY, R_BODY, 13.0, 36), matRocketSkin);
+            s1Body.position.y = 7.2;
+            s1Body.castShadow = true;
+            s1Body.receiveShadow = true;
+            stage1Group.add(s1Body);
+
+            // Aft Thrust Structure Skirt
+            const aftSkirt = new THREE.Mesh(new THREE.CylinderGeometry(R_BODY, R_BODY * 1.07, 1.1, 36), matCarbonInterstage);
+            aftSkirt.position.y = 0.55;
+            stage1Group.add(aftSkirt);
+
+            // External Avionics Cable Raceway & Structural Rings
+            for (let side of [-1, 1]) {
+                const raceway = new THREE.Mesh(new THREE.BoxGeometry(0.14, 13.2, 0.18), matRocketWhite);
+                raceway.position.set(side * (R_BODY + 0.03), 7.2, 0);
+                stage1Group.add(raceway);
+            }
+
+            [1.1, 5.2, 9.4, 13.7].forEach((ry) => {
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(R_BODY + 0.025, 0.035, 10, 36), matMetallicRing);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = ry;
+                stage1Group.add(ring);
+            });
+
+            // 4 Aerodynamic Base Stabilization Fins
+            for (let f = 0; f < 4; f++) {
+                const fAng = (f * Math.PI) / 2 + Math.PI / 4;
+                const finPivot = new THREE.Group();
+                finPivot.rotation.y = fAng;
+                const finMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.8, 0.95), matCarbonInterstage);
+                finMesh.position.set(0, 1.1, R_BODY + 0.38);
+                finPivot.add(finMesh);
+                stage1Group.add(finPivot);
+            }
+
+            // Carbon Composite Interstage Skirt (y = 13.7 to 15.0)
+            const interstageMesh = new THREE.Mesh(new THREE.CylinderGeometry(R_BODY, R_BODY, 1.35, 36), matCarbonInterstage);
+            interstageMesh.position.y = 14.35;
+            stage1Group.add(interstageMesh);
+
+            // Cluster of 5 Stage-1 Liquid Rocket Engine Nozzles (1 center + 4 outer)
+            const nozzleGeo = new THREE.CylinderGeometry(0.18, 0.36, 0.85, 20, 1, true);
+            const s1Nozzles = [
+                [0, 0],
+                [0.52, 0],
+                [-0.52, 0],
+                [0, 0.52],
+                [0, -0.52]
+            ];
+            s1Nozzles.forEach(([nx, nz]) => {
+                const noz = new THREE.Mesh(nozzleGeo, matNozzleBell);
+                noz.position.set(nx, -0.35, nz);
+                stage1Group.add(noz);
+            });
+
+            // --- 6.2 SECOND STAGE GROUP (y = 15.0 to 19.6 in rocket frame) ---
+            const stage2Group = new THREE.Group();
+            rocketRoot.add(stage2Group);
+
+            const s2Tank = new THREE.Mesh(new THREE.CylinderGeometry(R_BODY, R_BODY, 4.4, 36), matRocketWhite);
+            s2Tank.position.y = 17.2;
+            s2Tank.castShadow = true;
+            stage2Group.add(s2Tank);
+
+            // Saffron & dark telemetry band on Stage 2
+            const s2Band = new THREE.Mesh(new THREE.CylinderGeometry(R_BODY + 0.015, R_BODY + 0.015, 0.45, 36), matCarbonInterstage);
+            s2Band.position.y = 18.6;
+            stage2Group.add(s2Band);
+
+            const s2Ring = new THREE.Mesh(new THREE.TorusGeometry(R_BODY + 0.03, 0.035, 10, 36), matMetallicRing);
+            s2Ring.rotation.x = Math.PI / 2;
+            s2Ring.position.y = 19.4;
+            stage2Group.add(s2Ring);
+
+            // Vacuum Optimized Second-Stage Engine Nozzle (nested inside interstage until separation)
+            const vacNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.62, 1.25, 28, 1, true), matVacNozzleBell);
+            vacNozzle.position.y = 14.45;
+            stage2Group.add(vacNozzle);
+
+            // Conical Payload Adapter (PAF) atop Stage 2
+            const pafMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.62, R_BODY * 0.88, 0.7, 28), matCarbonInterstage);
+            pafMesh.position.y = 19.75;
+            stage2Group.add(pafMesh);
+
+            // --- 6.3 SEPARATING CLAMSHELL PAYLOAD FAIRING HALVES (y = 19.4 to 25.4) ---
+            // Build procedural ogive lathe geometry for half-shell (0 to PI)
+            const fairingPoints = [];
+            fairingPoints.push(new THREE.Vector2(R_BODY, 0.0));
+            fairingPoints.push(new THREE.Vector2(R_BODY, 2.3));
+            for (let i = 1; i <= 14; i++) {
+                const u = i / 14;
+                const r = R_BODY * Math.cos(u * Math.PI * 0.5);
+                const y = 2.3 + u * 3.7;
+                fairingPoints.push(new THREE.Vector2(Math.max(0.01, r), y));
+            }
+            const halfFairingGeo = new THREE.LatheGeometry(fairingPoints, 28, 0, Math.PI);
+            const matFairingShell = new THREE.MeshStandardMaterial({
+                color: 0xf8fafc,
+                roughness: 0.3,
+                metalness: 0.15,
+                side: THREE.DoubleSide
+            });
+
+            const fairingLeft = new THREE.Group();
+            fairingLeft.position.set(0, 19.4, 0);
+            const fMeshL = new THREE.Mesh(halfFairingGeo, matFairingShell);
+            fMeshL.rotation.y = Math.PI / 2;
+            fMeshL.castShadow = true;
+            // Internal acoustic blanket ribs
+            const ribL = new THREE.Mesh(new THREE.TorusGeometry(R_BODY * 0.92, 0.05, 8, 20, Math.PI), matCarbonInterstage);
+            ribL.rotation.x = Math.PI / 2;
+            ribL.rotation.z = Math.PI / 2;
+            ribL.position.y = 1.6;
+            fairingLeft.add(fMeshL, ribL);
+            rocketRoot.add(fairingLeft);
+
+            const fairingRight = new THREE.Group();
+            fairingRight.position.set(0, 19.4, 0);
+            const fMeshR = new THREE.Mesh(halfFairingGeo, matFairingShell);
+            fMeshR.rotation.y = -Math.PI / 2;
+            fMeshR.castShadow = true;
+            const ribR = ribL.clone();
+            ribR.rotation.z = -Math.PI / 2;
+            fairingRight.add(fMeshR, ribR);
+            rocketRoot.add(fairingRight);
+
+            // --- 6.4 MESRA-SAT-1 SATELLITE & UNFOLDING SOLAR ARRAYS ---
+            const satelliteGroup = new THREE.Group();
+            satelliteGroup.position.set(0, 20.85, 0);
+            rocketRoot.add(satelliteGroup);
+
+            // Gold MLI Wrapped Hexagonal/Octagonal Satellite Bus
+            const satBus = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 1.55, 8), matGoldFoil);
+            satBus.castShadow = true;
+            satelliteGroup.add(satBus);
+
+            // Top High-Gain Ka-Band Dish Antenna & Feed Horn
+            const satDish = new THREE.Mesh(
+                new THREE.SphereGeometry(0.52, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+                matCryoWhite
+            );
+            satDish.rotation.x = Math.PI;
+            satDish.position.y = 1.05;
+            satelliteGroup.add(satDish);
+
+            const satFeed = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.45, 8), matMetallicRing);
+            satFeed.position.y = 1.05;
+            satelliteGroup.add(satFeed);
+
+            // Star Trackers & Optical Earth-Observation Payload Lens
+            const sensorUnit = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.35, 16), matMetallicRing);
+            sensorUnit.rotation.z = Math.PI / 2;
+            sensorUnit.position.set(0.55, 0.25, 0);
+            satelliteGroup.add(sensorUnit);
+
+            // Two Multi-Segment Articulated Solar Wings (folded cleanly inside fairing until t = 37.5s)
+            function createSolarWing(sideSign) {
+                const rootPivot = new THREE.Group();
+                rootPivot.position.set(sideSign * 0.62, 0.0, 0);
+
+                // Inner Panel
+                const panelGeo = new THREE.BoxGeometry(1.45, 0.04, 0.78);
+                const innerPanel = new THREE.Mesh(panelGeo, matSolarCell);
+                innerPanel.position.set(sideSign * 0.75, 0, 0);
+                const innerFrame = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.03, 0.82), matMetallicRing);
+                innerFrame.position.copy(innerPanel.position);
+                rootPivot.add(innerFrame, innerPanel);
+
+                // Outer Hinged Panel
+                const outerPivot = new THREE.Group();
+                outerPivot.position.set(sideSign * 1.48, 0, 0);
+                const outerPanel = new THREE.Mesh(panelGeo, matSolarCell);
+                outerPanel.position.set(sideSign * 0.75, 0, 0);
+                const outerFrame = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.03, 0.82), matMetallicRing);
+                outerFrame.position.copy(outerPanel.position);
+                outerPivot.add(outerFrame, outerPanel);
+                rootPivot.add(outerPivot);
+
+                return { rootPivot, outerPivot };
+            }
+
+            const wingLeft = createSolarWing(-1);
+            const wingRight = createSolarWing(1);
+            satelliteGroup.add(wingLeft.rootPivot, wingRight.rootPivot);
+
+            // ============================================================================
+            // 7. LAYERED ENGINE EXHAUST PLUMES & DETERMINISTIC SMOKE PARTICLE SYSTEM
+            // ============================================================================
+            function createExhaustPlume(radiusTop, radiusBottom, length, isVacuum) {
+                const group = new THREE.Group();
+
+                // Custom GLSL Supersonic Mach Shock-Diamond Plume Shader
+                const plumeGeo = new THREE.CylinderGeometry(radiusTop, radiusBottom * (isVacuum ? 1.55 : 1.15), length, 32, 48, true);
+                plumeGeo.translate(0, -length * 0.5, 0);
+
+                const plumeMat = new THREE.ShaderMaterial({
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    side: THREE.DoubleSide,
+                    uniforms: {
+                        uTime: { value: 0.0 },
+                        uThrust: { value: 1.0 },
+                        uIsVacuum: { value: isVacuum ? 1.0 : 0.0 }
+                    },
+                    vertexShader: `
+                        varying vec2 vUv;
+                        varying vec3 vNormal;
+                        varying vec3 vViewDir;
+                        uniform float uTime;
+                        uniform float uThrust;
+                        uniform float uIsVacuum;
+
+                        void main() {
+                            vUv = uv;
+                            // vUv.y = 1.0 at nozzle exit, 0.0 at plume tip
+                            float distFromNozzle = 1.0 - uv.y;
+                            
+                            // High-frequency supersonic acoustic flutter along the jet boundary
+                            float wave = sin(distFromNozzle * 28.0 - uTime * 65.0) * 0.045 * distFromNozzle;
+                            float pulse = sin(distFromNozzle * 18.0 - uTime * 42.0) * 0.03 * (1.0 - uIsVacuum * 0.6);
+
+                            vec3 pos = position;
+                            pos.xz *= (1.0 + wave + pulse);
+
+                            vec4 wp = modelMatrix * vec4(pos, 1.0);
+                            vNormal = normalize(mat3(modelMatrix) * normal);
+                            vViewDir = normalize(cameraPosition - wp.xyz);
+                            gl_Position = projectionMatrix * viewMatrix * wp;
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec2 vUv;
+                        varying vec3 vNormal;
+                        varying vec3 vViewDir;
+                        uniform float uTime;
+                        uniform float uThrust;
+                        uniform float uIsVacuum;
+
+                        void main() {
+                            // axial coordinate: 0 at nozzle exit, 1 at far tip
+                            float axial = 1.0 - vUv.y;
+
+                            // Fresnel edge softness so cylinder edges never look sharp
+                            float edgeSoft = pow(abs(dot(normalize(vNormal), normalize(vViewDir))), 1.35);
+
+                            // Periodic Mach Shock Diamonds (standing supersonic expansion/compression waves)
+                            float shockFreq = mix(22.0, 10.0, uIsVacuum);
+                            float shockWave = pow(max(0.0, cos(axial * shockFreq - uTime * 12.0)), 4.0);
+                            float shockMask = shockWave * exp(-axial * 2.6) * (1.0 - uIsVacuum * 0.55);
+
+                            // Core thermal gradient: incandescent white-blue -> golden amber -> crimson tail
+                            vec3 colNozzle = mix(vec3(1.0, 0.98, 0.9), vec3(0.75, 0.88, 1.0), uIsVacuum * 0.5);
+                            vec3 colMid = mix(vec3(1.0, 0.52, 0.08), vec3(0.95, 0.42, 0.18), uIsVacuum);
+                            vec3 colTail = mix(vec3(0.85, 0.14, 0.02), vec3(0.35, 0.55, 1.0), uIsVacuum * 0.7);
+
+                            vec3 baseCol = mix(colNozzle, colMid, smoothstep(0.0, 0.38, axial));
+                            baseCol = mix(baseCol, colTail, smoothstep(0.35, 0.95, axial));
+
+                            // Add bright Mach shock diamond nodes along centerline
+                            vec3 diamondCol = vec3(1.0, 0.97, 0.88) * shockMask * 1.45;
+                            vec3 finalCol = baseCol + diamondCol;
+
+                            // Axial attenuation & turbulent flicker
+                            float noiseFlicker = 0.9 + 0.1 * sin(axial * 45.0 - uTime * 90.0);
+                            float axialFade = pow(1.0 - axial, mix(1.35, 1.85, uIsVacuum));
+                            float alpha = edgeSoft * axialFade * noiseFlicker * uThrust;
+
+                            gl_FragColor = vec4(finalCol * 1.35, clamp(alpha, 0.0, 1.0));
+                        }
+                    `
+                });
+
+                const mainJetMesh = new THREE.Mesh(plumeGeo, plumeMat);
+
+                // Inner ultra-bright Mach core needle
+                const coreGeo = new THREE.CylinderGeometry(radiusTop * 0.52, radiusBottom * 0.12, length * 0.55, 24, 16, true);
+                coreGeo.translate(0, -length * 0.275, 0);
+                const coreMesh = new THREE.Mesh(coreGeo, plumeMat);
+
+                group.add(mainJetMesh, coreMesh);
+                group.visible = false;
+                return { group, plumeMat };
+            }
+
+            // Stage 1 Plume attached directly to Stage 1 engine mount
+            const s1Plume = createExhaustPlume(0.88, 2.5, 10.5, false);
+            s1Plume.group.position.set(0, -0.55, 0);
+            stage1Group.add(s1Plume.group);
+
+            // Stage 2 Vacuum Plume attached directly to Stage 2 vacuum nozzle
+            const s2Plume = createExhaustPlume(0.56, 3.6, 8.6, true);
+            s2Plume.group.position.set(0, 13.85, 0);
+            stage2Group.add(s2Plume.group);
+
+            // Deterministic Smoke & Exhaust Particle System (100% seekable at any timestamp t)
+            const PARTICLE_COUNT = 220;
+            const smokeTexture = createSoftParticleTexture();
+            const smokeMaterial = new THREE.SpriteMaterial({
+                map: smokeTexture,
+                transparent: true,
+                opacity: 0.0,
+                depthWrite: false
+            });
+
+            const smokeParticles = [];
+            const smokeGroup = new THREE.Group();
+            scene.add(smokeGroup);
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const mat = smokeMaterial.clone();
+                const sprite = new THREE.Sprite(mat);
+                sprite.visible = false;
+                smokeGroup.add(sprite);
+
+                // Pre-assign deterministic birth cycles and radial vectors
+                const seed1 = hash11(i * 3.17);
+                const seed2 = hash11(i * 7.91);
+                const seed3 = hash11(i * 13.37);
+                const angle = seed1 * Math.PI * 2.0;
+
+                smokeParticles.push({
+                    sprite,
+                    mat,
+                    angle,
+                    speed: 5.5 + seed2 * 14.5,
+                    lifeSpan: 2.6 + seed3 * 2.4,
+                    phaseOffset: (i / PARTICLE_COUNT) * 3.6,
+                    turbulence: (seed1 - 0.5) * 4.0,
+                    isTrail: i >= 125 // first 125 particles = pad ground surge, remaining 95 = ascent wake trail
+                });
+            }
+
+            function updateDeterministicParticles(t) {
+                if (t < 8.0 || t > 28.0) {
+                    for (let i = 0; i < PARTICLE_COUNT; i++) {
+                        smokeParticles[i].sprite.visible = false;
+                    }
+                    return;
+                }
+
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    const p = smokeParticles[i];
+
+                    if (!p.isTrail) {
+                        // Pad Trench & Ground Billowing Smoke (active t = 8.0s to 21.0s)
+                        const localT = t - 8.0 - p.phaseOffset * 0.45;
+                        if (localT < 0) {
+                            p.sprite.visible = false;
+                            continue;
+                        }
+                        const cycleAge = localT % p.lifeSpan;
+                        const birthTime = t - cycleAge;
+
+                        // Stop spawning new pad smoke once rocket is high above pad (birthTime > 15.2s)
+                        if (birthTime > 15.2) {
+                            p.sprite.visible = false;
+                            continue;
+                        }
+
+                        const normAge = cycleAge / p.lifeSpan;
+                        p.sprite.visible = true;
+
+                        // Radial outward expansion across concrete pad + prevailing Ranchi dawn breeze (+X, +Z)
+                        const radialDist = Math.pow(normAge, 0.68) * p.speed * 2.45;
+                        const windX = cycleAge * 2.4;
+                        const windZ = cycleAge * 1.1;
+
+                        const px = Math.cos(p.angle) * radialDist + windX;
+                        const pz = Math.sin(p.angle) * radialDist + windZ;
+                        const py = 0.8 + Math.pow(normAge, 1.2) * (3.5 + Math.abs(p.turbulence) * 1.8);
+
+                        p.sprite.position.set(px, py, pz);
+                        const scale = 1.8 + normAge * 8.5;
+                        p.sprite.scale.set(scale, scale, 1);
+
+                        // Incandescent orange glow near core at birth -> cool grey smoke as it expands
+                        const heat = Math.max(0, 1.0 - normAge * 3.2);
+                        p.mat.color.setRGB(
+                            lerp(0.68, 1.0, heat),
+                            lerp(0.71, 0.55, heat),
+                            lerp(0.76, 0.2, heat)
+                        );
+                        p.mat.opacity = Math.sin(normAge * Math.PI) * 0.46 * (1.0 - smoothstep(13.5, 16.5, birthTime));
+                    } else {
+                        // Ascent Exhaust Wake Plume Trail (active t = 10.0s to 24.5s)
+                        const emitStart = 9.8 + (p.phaseOffset * 3.4);
+                        if (t < emitStart) {
+                            p.sprite.visible = false;
+                            continue;
+                        }
+                        const cycleAge = (t - emitStart) % (p.lifeSpan * 0.85);
+                        const birthTime = t - cycleAge;
+
+                        if (birthTime < 9.8 || birthTime > 23.0) {
+                            p.sprite.visible = false;
+                            continue;
+                        }
+
+                        const normAge = cycleAge / (p.lifeSpan * 0.85);
+                        const birthKin = getFlightKinematics(birthTime);
+
+                        p.sprite.visible = true;
+                        const driftX = Math.cos(p.angle) * cycleAge * 1.6 + cycleAge * 1.8;
+                        const driftZ = Math.sin(p.angle) * cycleAge * 1.6;
+                        const wakeDrop = cycleAge * 6.5;
+
+                        p.sprite.position.set(
+                            driftX,
+                            Math.max(0.8, birthKin.y + 1.5 - wakeDrop),
+                            birthKin.z + driftZ
+                        );
+
+                        const scale = 2.0 + normAge * 7.2;
+                        p.sprite.scale.set(scale, scale, 1);
+
+                        const atmosFade = 1.0 - smoothstep(19.0, 23.5, birthTime);
+                        p.mat.color.setRGB(0.85, 0.84, 0.88);
+                        p.mat.opacity = (1.0 - normAge) * 0.42 * atmosFade;
+                    }
+                }
+            }
+
+            // ============================================================================
+            // 8. CURVED EARTH HORIZON & SUNRISE ATMOSPHERIC LIMB FOR ORBITAL FINALE
+            // ============================================================================
+            const orbitalEarthGroup = new THREE.Group();
+            scene.add(orbitalEarthGroup);
+
+            const earthRadius = 3400;
+            const earthGeo = new THREE.SphereGeometry(earthRadius, 96, 64);
+            const earthMat = new THREE.ShaderMaterial({
+                uniforms: {
+                    uSunDir: { value: new THREE.Vector3(0.85, 0.25, -0.45).normalize() },
+                    uOpacity: { value: 0.0 },
+                    uTime: { value: 0.0 }
+                },
+                transparent: true,
+                vertexShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vWorldPos;
+                    varying vec2 vUv;
+                    varying vec3 vLocalPos;
+                    void main() {
+                        vUv = uv;
+                        vLocalPos = normalize(position);
+                        vNormal = normalize(mat3(modelMatrix) * normal);
+                        vec4 wp = modelMatrix * vec4(position, 1.0);
+                        vWorldPos = wp.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * wp;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vWorldPos;
+                    varying vec2 vUv;
+                    varying vec3 vLocalPos;
+                    uniform vec3 uSunDir;
+                    uniform float uOpacity;
+                    uniform float uTime;
+
+                    float hash(vec2 p) {
+                        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+                    }
+
+                    float noise(vec2 p) {
+                        vec2 i = floor(p);
+                        vec2 f = fract(p);
+                        f = f * f * (3.0 - 2.0 * f);
+                        return mix(
+                            mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                            mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+                            f.y
+                        );
+                    }
+
+                    // Multi-octave Fractional Brownian Motion (fBM) for realistic continental coastlines & clouds
+                    float fbm(vec2 p) {
+                        float v = 0.0;
+                        float a = 0.5;
+                        mat2 rot = mat2(0.8, -0.6, 0.6, 0.8);
+                        for (int i = 0; i < 5; i++) {
+                            v += a * noise(p);
+                            p = rot * p * 2.05 + vec2(11.3, 7.1);
+                            a *= 0.5;
+                        }
+                        return v;
+                    }
+
+                    void main() {
+                        vec3 N = normalize(vNormal);
+                        vec3 V = normalize(cameraPosition - vWorldPos);
+                        vec3 L = normalize(uSunDir);
+
+                        float ndotl = dot(N, L);
+                        float dayFactor = smoothstep(-0.14, 0.25, ndotl);
+
+                        // Multi-scale continental geography & mountain relief
+                        vec2 geoCoord = vUv * vec2(18.0, 9.0) + vec2(2.4, 1.1);
+                        float cont = fbm(geoCoord);
+                        float detail = fbm(geoCoord * 3.8);
+                        float landMask = smoothstep(0.47, 0.51, cont + detail * 0.12);
+
+                        // Deep bathymetries, coastal shelves & sunglint specular on ocean
+                        vec3 deepOcean = vec3(0.015, 0.075, 0.22);
+                        vec3 shallowShelf = vec3(0.03, 0.24, 0.38);
+                        float shelfMask = smoothstep(0.41, 0.47, cont);
+                        vec3 oceanBase = mix(deepOcean, shallowShelf, shelfMask);
+
+                        // Ocean specular sun reflection (glint near terminator/horizon)
+                        vec3 H = normalize(L + V);
+                        float spec = pow(max(dot(N, H), 0.0), 48.0) * (1.0 - landMask) * dayFactor;
+                        vec3 specCol = vec3(1.0, 0.78, 0.48) * spec * 1.35;
+
+                        // Terrestrial biomes: Chota Nagpur / Indian vegetation, arid plains, Himalayan snowcaps
+                        vec3 forestBiome = vec3(0.08, 0.24, 0.11);
+                        vec3 ochrePlateau = vec3(0.44, 0.31, 0.19);
+                        vec3 snowPeak = vec3(0.88, 0.91, 0.96);
+                        vec3 landCol = mix(forestBiome, ochrePlateau, smoothstep(0.35, 0.7, detail));
+                        landCol = mix(landCol, snowPeak, smoothstep(0.72, 0.86, cont * detail * 1.9));
+
+                        vec3 surface = mix(oceanBase + specCol, landCol, landMask);
+
+                        // Swirling Cyclonic & Trade-Wind Cloud Layer
+                        vec2 cloudUv = vUv * vec2(24.0, 12.0) + vec2(uTime * 0.0015, 0.0);
+                        float c1 = fbm(cloudUv);
+                        float c2 = fbm(cloudUv * 2.6 + vec2(c1 * 1.4));
+                        float cloudMask = smoothstep(0.46, 0.76, (c1 + c2) * 0.52);
+
+                        vec3 cloudDay = vec3(0.96, 0.97, 1.0);
+                        vec3 cloudSunset = vec3(1.0, 0.52, 0.24);
+                        float termBand = exp(-pow((ndotl - 0.02) * 6.5, 2.0));
+                        vec3 cloudLit = mix(cloudDay, cloudSunset, termBand * 0.75);
+                        surface = mix(surface, cloudLit, cloudMask * 0.78);
+
+                        // Nighttime Urban City Light Clusters & Highways (Ranchi / Kolkata / Delhi corridor glow)
+                        float cityGrid = smoothstep(0.56, 0.64, detail) * smoothstep(0.48, 0.62, hash(floor(vUv * 420.0)));
+                        float cityGlow = fbm(vUv * 85.0);
+                        float nightMask = (1.0 - smoothstep(-0.08, 0.12, ndotl)) * landMask * (1.0 - cloudMask * 0.75);
+                        vec3 nightLights = (vec3(1.0, 0.74, 0.32) * cityGrid * 1.6 + vec3(0.95, 0.55, 0.18) * smoothstep(0.58, 0.75, cityGlow) * 0.6) * nightMask;
+
+                        // Golden Sunrise Terminator & Rayleigh Blue Atmospheric Rim Scattering
+                        vec3 termCol = vec3(1.0, 0.42, 0.11) * termBand * 0.58;
+                        float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.4);
+                        vec3 limbCol = mix(vec3(0.16, 0.58, 1.0), vec3(1.0, 0.64, 0.22), termBand) * fresnel * 1.65;
+
+                        vec3 finalCol = surface * (0.025 + 0.975 * dayFactor) + nightLights + termCol + limbCol;
+                        gl_FragColor = vec4(finalCol, uOpacity);
+                    }
+                `
+            });
+            const orbitalEarthMesh = new THREE.Mesh(earthGeo, earthMat);
+            orbitalEarthGroup.add(orbitalEarthMesh);
+
+            // Outer glowing atmosphere limb halo shell
+            const limbGeo = new THREE.SphereGeometry(earthRadius * 1.018, 64, 48);
+            const limbMat = new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                uniforms: {
+                    uOpacity: { value: 0.0 }
+                },
+                vertexShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vWorldPos;
+                    void main() {
+                        vNormal = normalize(mat3(modelMatrix) * normal);
+                        vec4 wp = modelMatrix * vec4(position, 1.0);
+                        vWorldPos = wp.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * wp;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vWorldPos;
+                    uniform float uOpacity;
+                    void main() {
+                        vec3 N = normalize(vNormal);
+                        vec3 V = normalize(cameraPosition - vWorldPos);
+                        float rim = pow(clamp(1.0 + dot(N, V), 0.0, 1.0), 3.0);
+                        vec3 col = mix(vec3(0.15, 0.55, 1.0), vec3(0.98, 0.68, 0.3), rim * 0.45);
+                        gl_FragColor = vec4(col, rim * 0.85 * uOpacity);
+                    }
+                `
+            });
+            const orbitalLimbMesh = new THREE.Mesh(limbGeo, limbMat);
+            orbitalEarthGroup.add(orbitalLimbMesh);
+
+            // ============================================================================
+            // 9. INTERACTIVE CAMERA ORBIT CONTROLS + CINEMATIC AUTO-DIRECTOR
+            // ============================================================================
+            let userOrbitOffsetAzimuth = 0;
+            let userOrbitOffsetElevation = 0;
+            let userZoomMultiplier = 1.0;
+            let isDragging = false;
+            let prevPointerX = 0;
+            let prevPointerY = 0;
+            let activePointers = new Map();
+            let prevPinchDist = null;
+
+            const camResetBtn = document.getElementById('btn-reset-cam');
+            const camReadout = document.getElementById('cam-readout');
+
+            function updateCameraModeBadge() {
+                const hasCustomOffset =
+                    Math.abs(userOrbitOffsetAzimuth) > 0.01 ||
+                    Math.abs(userOrbitOffsetElevation) > 0.01 ||
+                    Math.abs(userZoomMultiplier - 1.0) > 0.02;
+
+                if (hasCustomOffset) {
+                    camReadout.textContent = 'INTERACTIVE ORBIT';
+                    camReadout.className = 'text-xs font-semibold text-amber-300 mono';
+                    camResetBtn.classList.remove('hidden');
+                } else {
+                    camReadout.textContent = 'AUTO DIRECTOR';
+                    camReadout.className = 'text-xs font-semibold text-slate-200 mono';
+                    camResetBtn.classList.add('hidden');
+                }
+            }
+
+            renderer.domElement.addEventListener('pointerdown', (e) => {
+                activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                if (activePointers.size === 1) {
+                    isDragging = true;
+                    prevPointerX = e.clientX;
+                    prevPointerY = e.clientY;
+                } else if (activePointers.size === 2) {
+                    isDragging = false;
+                    const pts = Array.from(activePointers.values());
+                    prevPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                }
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (activePointers.has(e.pointerId)) {
+                    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                }
+
+                if (activePointers.size === 2) {
+                    const pts = Array.from(activePointers.values());
+                    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                    if (prevPinchDist !== null && prevPinchDist > 5) {
+                        const delta = prevPinchDist - dist;
+                        userZoomMultiplier = clamp(userZoomMultiplier + delta * 0.004, 0.45, 2.4);
+                        updateCameraModeBadge();
+                    }
+                    prevPinchDist = dist;
+                    return;
+                }
+
+                if (!isDragging) return;
+                const dx = e.clientX - prevPointerX;
+                const dy = e.clientY - prevPointerY;
+                prevPointerX = e.clientX;
+                prevPointerY = e.clientY;
+
+                userOrbitOffsetAzimuth -= dx * 0.0065;
+                userOrbitOffsetElevation = clamp(userOrbitOffsetElevation + dy * 0.0055, -0.75, 0.85);
+                updateCameraModeBadge();
+            });
+
+            function handlePointerUp(e) {
+                activePointers.delete(e.pointerId);
+                if (activePointers.size < 2) {
+                    prevPinchDist = null;
+                }
+                if (activePointers.size === 0) {
+                    isDragging = false;
+                }
+            }
+
+            window.addEventListener('pointerup', handlePointerUp);
+            window.addEventListener('pointercancel', handlePointerUp);
+
+            renderer.domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                userZoomMultiplier = clamp(userZoomMultiplier + e.deltaY * 0.001, 0.45, 2.4);
+                updateCameraModeBadge();
+            }, { passive: false });
+
+            camResetBtn.addEventListener('click', () => {
+                userOrbitOffsetAzimuth = 0;
+                userOrbitOffsetElevation = 0;
+                userZoomMultiplier = 1.0;
+                updateCameraModeBadge();
+            });
+
+            // ============================================================================
+            // 9.5 PROCEDURAL WEB AUDIO API SOUND DESIGN ENGINE
+            // ============================================================================
+            const soundEngine = (function () {
+                let ctx = null;
+                let isEnabled = false;
+                let masterGain = null;
+                let rumbleGain = null;
+                let rumbleFilter = null;
+                let crackleGain = null;
+                let vacGain = null;
+                let vacOsc = null;
+                let padAmbientGain = null;
+                let lastTriggeredTime = -1;
+
+                const btnAudio = document.getElementById('btn-audio');
+                const iconOff = document.getElementById('icon-sound-off');
+                const iconOn = document.getElementById('icon-sound-on');
+                const audioLabel = document.getElementById('audio-label');
+
+                function initContext() {
+                    if (ctx) return;
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    ctx = new AudioCtx();
+
+                    masterGain = ctx.createGain();
+                    masterGain.gain.value = 0.85;
+                    masterGain.connect(ctx.destination);
+
+                    // Create 3-second looping Brown/Pink Noise + Acoustic Crackle Buffer
+                    const bufferSize = ctx.sampleRate * 3;
+                    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const data = noiseBuffer.getChannelData(0);
+                    let lastOut = 0.0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        lastOut = (lastOut + 0.035 * white) / 1.035;
+                        // Add sharp supersonic shockwave crackle spikes
+                        const spike = Math.random() > 0.992 ? (Math.random() * 2 - 1) * 2.8 : 0;
+                        data[i] = clamp(lastOut * 2.2 + spike * 0.35, -1, 1);
+                    }
+
+                    // 1. Stage 1 Deep Rocket Sub-Bass & Turbulent Roar
+                    const rumbleSource = ctx.createBufferSource();
+                    rumbleSource.buffer = noiseBuffer;
+                    rumbleSource.loop = true;
+
+                    rumbleFilter = ctx.createBiquadFilter();
+                    rumbleFilter.type = 'lowpass';
+                    rumbleFilter.frequency.value = 140;
+                    rumbleFilter.Q.value = 1.4;
+
+                    rumbleGain = ctx.createGain();
+                    rumbleGain.gain.value = 0.0001;
+
+                    rumbleSource.connect(rumbleFilter);
+                    rumbleFilter.connect(rumbleGain);
+                    rumbleGain.connect(masterGain);
+                    rumbleSource.start();
+
+                    // 2. High-Frequency Supersonic Acoustic Crackle Layer
+                    const crackleSource = ctx.createBufferSource();
+                    crackleSource.buffer = noiseBuffer;
+                    crackleSource.loop = true;
+
+                    const crackleFilter = ctx.createBiquadFilter();
+                    crackleFilter.type = 'bandpass';
+                    crackleFilter.frequency.value = 1150;
+                    crackleFilter.Q.value = 0.9;
+
+                    crackleGain = ctx.createGain();
+                    crackleGain.gain.value = 0.0001;
+
+                    crackleSource.connect(crackleFilter);
+                    crackleFilter.connect(crackleGain);
+                    crackleGain.connect(masterGain);
+                    crackleSource.start();
+
+                    // 3. Stage 2 Vacuum Engine Resonant Turbopump Hum
+                    vacOsc = ctx.createOscillator();
+                    vacOsc.type = 'sawtooth';
+                    vacOsc.frequency.value = 92;
+
+                    const vacFilter = ctx.createBiquadFilter();
+                    vacFilter.type = 'lowpass';
+                    vacFilter.frequency.value = 260;
+
+                    vacGain = ctx.createGain();
+                    vacGain.gain.value = 0.0001;
+
+                    vacOsc.connect(vacFilter);
+                    vacFilter.connect(vacGain);
+                    vacGain.connect(masterGain);
+                    vacOsc.start();
+
+                    // 4. Pre-Dawn Cryogenic Venting & Campus Pad Hum
+                    const padSource = ctx.createBufferSource();
+                    padSource.buffer = noiseBuffer;
+                    padSource.loop = true;
+
+                    const padFilter = ctx.createBiquadFilter();
+                    padFilter.type = 'bandpass';
+                    padFilter.frequency.value = 420;
+                    padFilter.Q.value = 2.0;
+
+                    padAmbientGain = ctx.createGain();
+                    padAmbientGain.gain.value = 0.0001;
+
+                    padSource.connect(padFilter);
+                    padFilter.connect(padAmbientGain);
+                    padAmbientGain.connect(masterGain);
+                    padSource.start();
+                }
+
+                // One-shot synthesizer for mission control beeps, hydraulic retraction, and staging clamps
+                function triggerOneShot(type) {
+                    if (!ctx || !isEnabled || ctx.state !== 'running') return;
+                    const now = ctx.currentTime;
+
+                    if (type === 'retract') {
+                        // Hydraulic servo whine + clamp release clunk
+                        const osc = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(180, now);
+                        osc.frequency.exponentialRampToValueAtTime(110, now + 1.4);
+                        g.gain.setValueAtTime(0.08, now);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+                        osc.connect(g);
+                        g.connect(masterGain);
+                        osc.start(now);
+                        osc.stop(now + 1.55);
+                    } else if (type === 'staging' || type === 'fairing') {
+                        // Pneumatic pyrotechnic separation thud + telemetry confirmation beep
+                        const osc = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(type === 'staging' ? 135 : 210, now);
+                        osc.frequency.exponentialRampToValueAtTime(32, now + 0.38);
+                        g.gain.setValueAtTime(0.35, now);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+                        osc.connect(g);
+                        g.connect(masterGain);
+                        osc.start(now);
+                        osc.stop(now + 0.45);
+                    } else if (type === 'beep' || type === 'deploy') {
+                        // Clean space telemetry / Quindar-style tone
+                        const osc = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(type === 'deploy' ? 1320 : 980, now);
+                        g.gain.setValueAtTime(0.09, now);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                        osc.connect(g);
+                        g.connect(masterGain);
+                        osc.start(now);
+                        osc.stop(now + 0.25);
+                    }
+                }
+
+                function updateAtTime(t, playing) {
+                    if (!ctx || !isEnabled) return;
+                    const now = ctx.currentTime;
+
+                    if (!playing) {
+                        rumbleGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                        crackleGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                        vacGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                        padAmbientGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                        lastTriggeredTime = t;
+                        return;
+                    }
+
+                    // Detect discrete timeline event crossings for one-shot sound effects
+                    if (lastTriggeredTime >= 0 && t > lastTriggeredTime && (t - lastTriggeredTime) < 0.5) {
+                        if (lastTriggeredTime < 5.0 && t >= 5.0) triggerOneShot('retract');
+                        if (lastTriggeredTime < 7.0 && t >= 7.0) triggerOneShot('beep');
+                        if (lastTriggeredTime < 8.0 && t >= 8.0) triggerOneShot('beep');
+                        if (lastTriggeredTime < 23.0 && t >= 23.0) triggerOneShot('staging');
+                        if (lastTriggeredTime < 25.0 && t >= 25.0) triggerOneShot('beep');
+                        if (lastTriggeredTime < 29.5 && t >= 29.5) triggerOneShot('fairing');
+                        if (lastTriggeredTime < 35.5 && t >= 35.5) triggerOneShot('deploy');
+                        if (lastTriggeredTime < 37.5 && t >= 37.5) triggerOneShot('retract');
+                    }
+                    lastTriggeredTime = t;
+
+                    // Continuous Pad Cryo Venting (0s -> 11s)
+                    const padLevel = (1.0 - smoothstep(9.0, 12.5, t)) * 0.045;
+                    padAmbientGain.gain.setTargetAtTime(Math.max(0.0001, padLevel), now, 0.1);
+
+                    // Stage 1 Engine Ignition & Supersonic Atmospheric Climb (8.0s -> 23.0s)
+                    if (t >= 8.0 && t < 23.0) {
+                        const rampIn = smoothstep(8.0, 9.6, t);
+                        // Sound attenuates gradually as atmospheric density drops toward upper stratosphere
+                        const atmoThinning = 1.0 - smoothstep(15.0, 22.8, t) * 0.68;
+                        const level = rampIn * atmoThinning;
+
+                        rumbleGain.gain.setTargetAtTime(Math.max(0.0001, level * 0.58), now, 0.06);
+                        rumbleFilter.frequency.setTargetAtTime(lerp(95, 280, rampIn), now, 0.08);
+                        crackleGain.gain.setTargetAtTime(Math.max(0.0001, level * 0.26), now, 0.06);
+                    } else {
+                        rumbleGain.gain.setTargetAtTime(0.0001, now, 0.1);
+                        crackleGain.gain.setTargetAtTime(0.0001, now, 0.1);
+                    }
+
+                    // Stage 2 Vacuum Engine Internal Structural Resonance (25.0s -> 34.0s)
+                    if (t >= 25.0 && t < 34.0) {
+                        const vacBurn = smoothstep(25.0, 25.6, t) * (1.0 - smoothstep(33.4, 34.0, t));
+                        vacGain.gain.setTargetAtTime(Math.max(0.0001, vacBurn * 0.12), now, 0.08);
+                        vacOsc.frequency.setTargetAtTime(88 + Math.sin(t * 4.0) * 3.0, now, 0.1);
+                    } else {
+                        vacGain.gain.setTargetAtTime(0.0001, now, 0.1);
+                    }
+                }
+
+                function toggleAudio() {
+                    initContext();
+                    isEnabled = !isEnabled;
+                    if (isEnabled) {
+                        if (ctx.state === 'suspended') ctx.resume();
+                        iconOff.classList.add('hidden');
+                        iconOn.classList.remove('hidden');
+                        audioLabel.textContent = 'Audio Live';
+                        btnAudio.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/40 text-[11px] font-semibold text-emerald-200 transition';
+                        triggerOneShot('beep');
+                    } else {
+                        iconOff.classList.remove('hidden');
+                        iconOn.classList.add('hidden');
+                        audioLabel.textContent = 'Audio Muted';
+                        btnAudio.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-[11px] font-semibold text-amber-200 transition';
+                        updateAtTime(0, false);
+                    }
+                }
+
+                btnAudio.addEventListener('click', toggleAudio);
+
+                return { updateAtTime, toggleAudio };
+            })();
+
+            // World-space transformation helper so staging & satellite tracking are 100% seamless
+            const _vecPos = new THREE.Vector3();
+            const _vecLook = new THREE.Vector3();
+
+            // ============================================================================
+            // 10. MASTER SEEKABLE SCENE RECONSTRUCTION ENGINE (t in [0, 46])
+            // ============================================================================
+            function evaluateSceneAtTime(t) {
+                const kin = getFlightKinematics(t);
+
+                // --- 10.1 Rocket Root Position & Attitude ---
+                rocketRoot.position.set(0, 2.5 + kin.y, kin.z);
+                rocketRoot.rotation.set(kin.pitch, kin.roll, 0);
+
+                // --- 10.2 Pad Strongback & Service Arms Retraction (5.0s -> 8.0s) ---
+                const retractProgress = smootherstep(5.0, 8.0, t);
+                strongbackPivot.rotation.x = -retractProgress * 0.42; // tilts back toward umbilical tower
+                serviceArmLower.rotation.y = retractProgress * 1.25;  // swings clear of rocket
+                serviceArmUpper.rotation.y = retractProgress * 1.25;
+
+                // Warning Beacons blink at 2Hz
+                const beaconPulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 4.0);
+                beaconMat.color.setRGB(1.0, 0.08 + 0.25 * beaconPulse, 0.08);
+
+                // --- 10.3 Stage 1 Separation & Tumbling Fall-Away (t >= 23.0s) ---
+                if (t < 23.0) {
+                    stage1Group.position.set(0, 0, 0);
+                    stage1Group.rotation.set(0, 0, 0);
+                } else {
+                    const dtSep = t - 23.0;
+                    stage1Group.position.set(
+                        -0.25 * dtSep,
+                        -1.65 * Math.pow(dtSep, 1.75),
+                        -0.55 * dtSep
+                    );
+                    stage1Group.rotation.set(-0.18 * dtSep, 0.08 * dtSep, 0.11 * dtSep);
+                }
+
+                // --- 10.4 Fairing Clamshell Jettison (t >= 29.5s) ---
+                if (t < 29.5) {
+                    fairingLeft.position.set(0, 19.4, 0);
+                    fairingLeft.rotation.set(0, 0, 0);
+                    fairingRight.position.set(0, 19.4, 0);
+                    fairingRight.rotation.set(0, 0, 0);
+                    fairingLeft.visible = true;
+                    fairingRight.visible = true;
+                } else {
+                    const dtFair = t - 29.5;
+                    const lateral = 2.6 * dtFair + 0.45 * dtFair * dtFair;
+                    const drop = -1.1 * dtFair - 0.85 * dtFair * dtFair;
+
+                    fairingLeft.position.set(-lateral, 19.4 + drop, -0.3 * dtFair);
+                    fairingLeft.rotation.set(0.15 * dtFair, -0.2 * dtFair, 0.65 * dtFair);
+
+                    fairingRight.position.set(lateral, 19.4 + drop, -0.3 * dtFair);
+                    fairingRight.rotation.set(0.15 * dtFair, 0.2 * dtFair, -0.65 * dtFair);
+
+                    fairingLeft.visible = dtFair < 12.0;
+                    fairingRight.visible = dtFair < 12.0;
+                }
+
+                // --- 10.5 Stage 2 Separation & Satellite Deployment + Solar Array Unfold (t >= 35.5s) ---
+                if (t < 35.5) {
+                    satelliteGroup.position.set(0, 20.85, 0);
+                    satelliteGroup.rotation.set(0, 0, 0);
+                    stage2Group.position.set(0, 0, 0);
+                } else {
+                    const dtDep = t - 35.5;
+                    // Satellite drifts smoothly forward along orbital vector while Stage 2 backs away slightly
+                    satelliteGroup.position.set(0, 20.85 + 1.15 * Math.pow(dtDep, 0.88), 0.18 * dtDep);
+                    satelliteGroup.rotation.set(0, dtDep * 0.14, 0);
+                    stage2Group.position.set(0, -0.65 * dtDep, -0.15 * dtDep);
+                }
+
+                // Solar Wings Unfold (t = 37.5s -> 41.5s)
+                // At t < 37.5s, panels are folded compactly flush against the satellite bus inside fairing
+                const unfold = smootherstep(37.5, 41.5, t);
+                wingLeft.rootPivot.rotation.z = lerp(-Math.PI * 0.48, 0.0, unfold);
+                wingLeft.outerPivot.rotation.z = lerp(Math.PI * 0.92, 0.0, unfold);
+
+                wingRight.rootPivot.rotation.z = lerp(Math.PI * 0.48, 0.0, unfold);
+                wingRight.outerPivot.rotation.z = lerp(-Math.PI * 0.92, 0.0, unfold);
+
+                // --- 10.6 Engine Exhaust Plumes & Nozzle Heating ---
+                // Stage 1 Engine Burn: t = 8.0s -> 23.0s
+                if (t >= 8.0 && t < 23.0) {
+                    s1Plume.group.visible = true;
+                    const rampIn = smoothstep(8.0, 9.5, t);
+                    const rampOut = 1.0 - smoothstep(22.6, 23.0, t);
+                    const thrust = rampIn * rampOut;
+                    const flicker = 0.94 + 0.08 * Math.sin(t * 68.0);
+
+                    // Plume widens as atmospheric pressure drops with altitude
+                    const altExpand = 1.0 + smoothstep(13.0, 23.0, t) * 0.85;
+                    s1Plume.group.scale.set(thrust * altExpand, thrust * flicker, thrust * altExpand);
+                    s1Plume.plumeMat.uniforms.uTime.value = t;
+                    s1Plume.plumeMat.uniforms.uThrust.value = thrust;
+                    matNozzleBell.emissiveIntensity = thrust * 1.45;
+                } else {
+                    s1Plume.group.visible = false;
+                    matNozzleBell.emissiveIntensity = Math.max(0, 1.0 - smoothstep(23.0, 26.0, t)) * 0.4;
+                }
+
+                // Stage 2 Vacuum Engine Burn: t = 25.0s -> 34.0s
+                if (t >= 25.0 && t < 34.0) {
+                    s2Plume.group.visible = true;
+                    const rampIn = smoothstep(25.0, 25.6, t);
+                    const rampOut = 1.0 - smoothstep(33.5, 34.0, t);
+                    const thrust = rampIn * rampOut;
+                    const flicker = 0.96 + 0.06 * Math.sin(t * 80.0);
+
+                    s2Plume.group.scale.set(thrust * 1.2, thrust * flicker, thrust * 1.2);
+                    s2Plume.plumeMat.uniforms.uTime.value = t;
+                    s2Plume.plumeMat.uniforms.uThrust.value = thrust;
+                    matVacNozzleBell.emissiveIntensity = thrust * 1.65;
+                } else {
+                    s2Plume.group.visible = false;
+                    matVacNozzleBell.emissiveIntensity = (t >= 34.0) ? Math.max(0, 1.0 - smoothstep(34.0, 38.0, t)) * 0.5 : 0.0;
+                }
+
+                // --- 10.7 Deterministic Smoke & Plume Particles ---
+                updateDeterministicParticles(t);
+
+                // --- 10.8 Dynamic Lighting, Sky Dome, Stars & Orbital Earth Transition ---
+                const dawnFactor = clamp(smoothstep(10.0, 38.0, t), 0, 1);
+                skyMat.uniforms.uSpaceFactor.value = kin.spaceFactor;
+                skyMat.uniforms.uDawnFactor.value = dawnFactor;
+                skyMat.uniforms.uTime.value = t;
+
+                // Keep skybox centered on camera
+                // Sun rises higher and brighter as rocket ascends into direct sunlight
+                const sunElev = lerp(18, 95, dawnFactor);
+                sunLight.position.set(
+                    rocketRoot.position.x + 180,
+                    rocketRoot.position.y + sunElev,
+                    rocketRoot.position.z - 95
+                );
+                sunLight.target.position.copy(rocketRoot.position);
+                sunLight.target.updateMatrixWorld();
+                sunLight.intensity = lerp(0.55, 3.1, dawnFactor);
+                sunLight.color.setHSL(lerp(0.06, 0.095, dawnFactor), lerp(0.85, 0.55, dawnFactor), lerp(0.62, 0.92, dawnFactor));
+
+                hemiLight.intensity = lerp(0.45, 0.78, dawnFactor);
+
+                // Engine Ignition Point Lights on Pad & BIT Mesra Building Walls (t = 8.0s -> 17.5s)
+                if (t >= 8.0 && t <= 18.0) {
+                    const igPower = smoothstep(8.0, 9.4, t) * (1.0 - smoothstep(12.5, 18.0, t));
+                    const pulse = 0.88 + 0.24 * Math.sin(t * 54.0);
+                    ignitionLight.intensity = igPower * 5.2 * pulse;
+                    ignitionLight.position.set(0, Math.max(3.5, rocketRoot.position.y - 1.0), rocketRoot.position.z);
+
+                    padBounceLight.intensity = igPower * 2.8 * pulse;
+                } else {
+                    ignitionLight.intensity = 0;
+                    padBounceLight.intensity = 0;
+                }
+
+                // Fade campus ground fog out as rocket climbs into vacuum
+                scene.fog.density = lerp(0.0022, 0.00001, kin.spaceFactor);
+                starMat.opacity = lerp(0.22, 0.96, kin.spaceFactor);
+
+                // Curved Orbital Earth beneath rocket in space
+                const earthVis = smoothstep(16.5, 27.5, t);
+                earthMat.uniforms.uOpacity.value = earthVis;
+                earthMat.uniforms.uTime.value = t;
+                limbMat.uniforms.uOpacity.value = earthVis;
+                orbitalEarthGroup.visible = earthVis > 0.01;
+                orbitalEarthGroup.position.set(
+                    rocketRoot.position.x,
+                    rocketRoot.position.y - earthRadius - 210,
+                    rocketRoot.position.z + 420
+                );
+                orbitalEarthMesh.rotation.y = 0.8 + t * 0.008;
+
+                // Ensure world matrices of rocket children are updated before computing camera tracking
+                rocketRoot.updateMatrixWorld(true);
+
+                // --- 10.9 CINEMATIC CAMERA CHOREOGRAPHY ---
+                const isPortrait = window.innerHeight > window.innerWidth;
+                const portraitScale = isPortrait ? 1.38 : 1.0;
+
+                // Helper to get world position of any point in rocketRoot local space
+                function rocketLocalToWorld(lx, ly, lz, targetVec) {
+                    return targetVec.set(lx, ly, lz).applyMatrix4(rocketRoot.matrixWorld);
+                }
+
+                const camPos = new THREE.Vector3();
+                const camLook = new THREE.Vector3();
+
+                if (t < 5.0) {
+                    // Shot 1: Wide Establishing Sweep of BIT Mesra SERD Building + Launch Pad at Pre-Dawn
+                    const u = smoothstep(0.0, 5.0, t);
+                    const angle = lerp(0.85, 0.28, u);
+                    const radius = lerp(52, 38, u) * portraitScale;
+                    camPos.set(
+                        Math.sin(angle) * radius,
+                        lerp(13.5, 10.5, u),
+                        Math.cos(angle) * radius
+                    );
+                    camLook.set(lerp(-10, -2, u), lerp(11.5, 13.0, u), lerp(-4, 0, u));
+                } else if (t < 8.0) {
+                    // Shot 2: Medium-Close Framing on Strongback & Service Arms Retracting
+                    const u = smootherstep(5.0, 8.0, t);
+                    camPos.set(
+                        lerp(18, 13.5, u) * portraitScale,
+                        lerp(15.5, 6.2, u),
+                        lerp(24, 16.5, u) * portraitScale
+                    );
+                    camLook.set(0, lerp(16.5, 8.5, u), -1.0);
+                } else if (t < 12.8) {
+                    // Shot 3: Dramatic Low-Angle Pad Ignition & Liftoff Climb
+                    const u = smootherstep(8.0, 12.8, t);
+                    const shakeAmt = smoothstep(8.0, 9.5, t) * (1.0 - smoothstep(11.5, 12.8, t)) * 0.16;
+                    const sx = Math.sin(t * 73.0) * shakeAmt;
+                    const sy = Math.cos(t * 89.0) * shakeAmt;
+
+                    camPos.set(
+                        lerp(13.5, 19.0, u) * portraitScale + sx,
+                        lerp(4.2, 11.0, u) + sy,
+                        lerp(16.5, 25.0, u) * portraitScale
+                    );
+                    rocketLocalToWorld(0, lerp(5.5, 11.5, u), 0, camLook);
+                } else if (t < 22.0) {
+                    // Shot 4: Dynamic Ascent Tracking Shot (Campus recedes below, sky warms)
+                    const u = smootherstep(12.8, 22.0, t);
+                    const orbitAng = lerp(0.55, 1.35, u);
+                    const dist = lerp(24.0, 19.5, u) * portraitScale;
+                    const heightOffset = lerp(-6.0, 4.5, u);
+
+                    rocketLocalToWorld(0, 14.5, 0, camLook);
+                    camPos.set(
+                        camLook.x + Math.sin(orbitAng) * dist,
+                        camLook.y + heightOffset,
+                        camLook.z + Math.cos(orbitAng) * dist
+                    );
+                } else if (t < 28.5) {
+                    // Shot 5: Stage 1 Separation & Stage 2 Vacuum Engine Ignition (SES-1)
+                    const u = smootherstep(22.0, 28.5, t);
+                    rocketLocalToWorld(0, lerp(14.8, 17.5, u), 0, camLook);
+                    const dist = lerp(15.5, 12.5, u) * portraitScale;
+                    const ang = lerp(1.35, 1.85, u);
+
+                    camPos.set(
+                        camLook.x + Math.sin(ang) * dist,
+                        camLook.y + lerp(2.0, -1.5, u),
+                        camLook.z + Math.cos(ang) * dist
+                    );
+                } else if (t < 34.5) {
+                    // Shot 6: Fairing Jettison Reveal of MESRA-SAT-1
+                    const u = smootherstep(28.5, 34.5, t);
+                    rocketLocalToWorld(0, 20.6, 0, camLook);
+                    const dist = lerp(11.5, 8.2, u) * portraitScale;
+                    const ang = lerp(1.85, 2.35, u);
+
+                    camPos.set(
+                        camLook.x + Math.sin(ang) * dist,
+                        camLook.y + lerp(2.2, 1.4, u),
+                        camLook.z + Math.cos(ang) * dist
+                    );
+                } else {
+                    // Shot 7: Satellite Deployment, Solar Array Unfold & Orbital Sunrise Finale
+                    const u = smootherstep(34.5, 46.0, t);
+                    satelliteGroup.getWorldPosition(camLook);
+
+                    const dist = lerp(6.8, 8.8, u) * portraitScale;
+                    const ang = lerp(2.35, 3.65, u);
+                    camPos.set(
+                        camLook.x + Math.sin(ang) * dist,
+                        camLook.y + lerp(1.2, 2.1, u),
+                        camLook.z + Math.cos(ang) * dist
+                    );
+                }
+
+                // Apply Interactive User Orbit & Zoom Offsets Around Current Target
+                const offsetVec = camPos.clone().sub(camLook);
+                const spherical = new THREE.Spherical().setFromVector3(offsetVec);
+                spherical.theta += userOrbitOffsetAzimuth;
+                spherical.phi = clamp(spherical.phi - userOrbitOffsetElevation, 0.12, Math.PI - 0.12);
+                spherical.radius *= userZoomMultiplier;
+                offsetVec.setFromSpherical(spherical);
+
+                camera.position.copy(camLook).add(offsetVec);
+                // Prevent camera from dipping below ground level while near campus
+                if (t < 15.0) {
+                    camera.position.y = Math.max(1.2, camera.position.y);
+                }
+                camera.lookAt(camLook);
+
+                // Keep SkyDome & StarField centered on camera
+                skyDome.position.copy(camera.position);
+                starField.position.copy(camera.position);
+
+                // --- 10.10 Update HUD Telemetry & Scrubber UI ---
+                updateUIDisplay(t, kin);
+            }
+
+            // ============================================================================
+            // 11. UI CONTROLS, SCRUBBER, EVENT MARKERS & KEYBOARD SHORTCUTS
+            // ============================================================================
+            const phaseLabel = document.getElementById('phase-label');
+            const clockReadout = document.getElementById('clock-readout');
+            const altReadout = document.getElementById('alt-readout');
+            const velReadout = document.getElementById('vel-readout');
+            const timeCurrentEl = document.getElementById('time-current');
+            const scrubberTrack = document.getElementById('scrubber-track');
+            const scrubberFill = document.getElementById('scrubber-fill');
+            const scrubberThumb = document.getElementById('scrubber-thumb');
+            const markersLayer = document.getElementById('markers-layer');
+
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const iconPause = document.getElementById('icon-pause');
+            const btnReplay = document.getElementById('btn-replay');
+            const btnHideUI = document.getElementById('btn-hide-ui');
+            const btnRestoreUI = document.getElementById('btn-restore-ui');
+            const uiTop = document.getElementById('ui-top');
+            const uiBottom = document.getElementById('ui-bottom');
+
+            let currentTime = 0.0;
+            let isPlaying = true;
+            let isScrubbing = false;
+            let uiVisible = true;
+
+            // Populate Scrubber Event Markers
+            TIMELINE_EVENTS.forEach((ev) => {
+                const pct = (ev.time / TOTAL_DURATION) * 100;
+                const marker = document.createElement('div');
+                marker.className = 'event-marker';
+                marker.style.left = `${pct}%`;
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'event-tooltip mono';
+                tooltip.textContent = ev.label;
+                marker.appendChild(tooltip);
+
+                marker.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    seekTo(ev.time);
+                });
+                markersLayer.appendChild(marker);
+            });
+
+            function getPhaseText(t) {
+                if (t < 5.0) return 'PRE-DAWN PAD CHECKS';
+                if (t < 8.0) return 'STRONGBACK RETRACTION';
+                if (t < 10.0) return 'STAGE 1 ENGINE IGNITION';
+                if (t < 15.0) return 'LIFTOFF & TOWER CLEAR';
+                if (t < 23.0) return 'MAX-Q & SUPERSONIC CLIMB';
+                if (t < 25.0) return 'MECO & STAGE SEPARATION';
+                if (t < 29.5) return 'SECOND STAGE IGNITION';
+                if (t < 34.0) return 'FAIRING JETTISON';
+                if (t < 35.5) return 'SECO-1 ORBITAL INSERTION';
+                if (t < 37.5) return 'MESRA-SAT-1 DEPLOYMENT';
+                if (t < 41.5) return 'SOLAR ARRAY DEPLOYMENT';
+                return 'LEO SUNRISE ORBIT';
+            }
+
+            function updateUIDisplay(t, kin) {
+                const pct = clamp((t / TOTAL_DURATION) * 100, 0, 100);
+                scrubberFill.style.width = `${pct}%`;
+                scrubberThumb.style.left = `${pct}%`;
+                timeCurrentEl.textContent = `${t.toFixed(1).padStart(4, '0')}s`;
+
+                phaseLabel.textContent = getPhaseText(t);
+
+                // Mission Clock relative to Liftoff at t = 10.0s
+                const relT = t - 10.0;
+                const sign = relT < 0 ? 'T- ' : 'T+ ';
+                const absT = Math.abs(relT);
+                const mins = Math.floor(absT / 60).toString().padStart(2, '0');
+                const secs = (absT % 60).toFixed(1).padStart(4, '0');
+                clockReadout.textContent = `${sign}${mins}:${secs}`;
+
+                altReadout.textContent = `${kin.realAltKm.toFixed(1)} km`;
+                velReadout.textContent = `${kin.realVelKms.toFixed(2)} km/s`;
+            }
+
+            function setPlayState(playing) {
+                isPlaying = playing;
+                if (isPlaying) {
+                    iconPause.classList.remove('hidden');
+                    iconPlay.classList.add('hidden');
+                } else {
+                    iconPause.classList.add('hidden');
+                    iconPlay.classList.remove('hidden');
+                }
+            }
+
+            function seekTo(targetTime) {
+                currentTime = clamp(targetTime, 0, TOTAL_DURATION);
+                evaluateSceneAtTime(currentTime);
+            }
+
+            // Scrubber pointer drag events
+            function handleScrubPointer(clientX) {
+                const rect = scrubberTrack.getBoundingClientRect();
+                const norm = clamp((clientX - rect.left) / rect.width, 0, 1);
+                seekTo(norm * TOTAL_DURATION);
+            }
+
+            scrubberTrack.addEventListener('pointerdown', (e) => {
+                isScrubbing = true;
+                handleScrubPointer(e.clientX);
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!isScrubbing) return;
+                handleScrubPointer(e.clientX);
+            });
+
+            window.addEventListener('pointerup', () => {
+                isScrubbing = false;
+            });
+
+            // Quick Seek Stage Pills
+            document.querySelectorAll('.seek-pill').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const target = parseFloat(btn.getAttribute('data-seek'));
+                    seekTo(target);
+                });
+            });
+
+            btnPlay.addEventListener('click', () => {
+                if (currentTime >= TOTAL_DURATION) {
+                    seekTo(0);
+                    setPlayState(true);
+                } else {
+                    setPlayState(!isPlaying);
+                }
+            });
+
+            btnReplay.addEventListener('click', () => {
+                userOrbitOffsetAzimuth = 0;
+                userOrbitOffsetElevation = 0;
+                userZoomMultiplier = 1.0;
+                updateCameraModeBadge();
+                seekTo(0.0);
+                setPlayState(true);
+            });
+
+            function toggleUIVisibility() {
+                uiVisible = !uiVisible;
+                if (uiVisible) {
+                    uiTop.classList.remove('ui-hidden');
+                    uiBottom.classList.remove('ui-hidden');
+                    btnRestoreUI.classList.add('ui-hidden');
+                } else {
+                    uiTop.classList.add('ui-hidden');
+                    uiBottom.classList.add('ui-hidden');
+                    btnRestoreUI.classList.remove('ui-hidden');
+                }
+            }
+
+            btnHideUI.addEventListener('click', toggleUIVisibility);
+            btnRestoreUI.addEventListener('click', toggleUIVisibility);
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    btnPlay.click();
+                } else if (e.key === 'h' || e.key === 'H') {
+                    toggleUIVisibility();
+                } else if (e.key === 'm' || e.key === 'M') {
+                    soundEngine.toggleAudio();
+                } else if (e.key === 'r' || e.key === 'R') {
+                    btnReplay.click();
+                } else if (e.code === 'ArrowRight') {
+                    seekTo(currentTime + 1.0);
+                } else if (e.code === 'ArrowLeft') {
+                    seekTo(currentTime - 1.0);
+                }
+            });
+
+            // Responsive Resize Handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                evaluateSceneAtTime(currentTime);
+            });
+
+            // ============================================================================
+            // 12. FRAME-RATE-INDEPENDENT MAIN ANIMATION LOOP
+            // ============================================================================
+            let lastFrameTime = performance.now();
+
+            function animate(now) {
+                requestAnimationFrame(animate);
+
+                const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+                lastFrameTime = now;
+
+                if (isPlaying && !isScrubbing) {
+                    currentTime += dt;
+                    if (currentTime >= TOTAL_DURATION) {
+                        currentTime = TOTAL_DURATION;
+                        setPlayState(false);
+                    }
+                }
+
+                evaluateSceneAtTime(currentTime);
+                soundEngine.updateAtTime(currentTime, isPlaying && !isScrubbing);
+                renderer.render(scene, camera);
+            }
+
+            window.onload = function () {
+                evaluateSceneAtTime(0.0);
+                lastFrameTime = performance.now();
+                requestAnimationFrame(animate);
+            };
+        })();
+    </script>
+</body>
+</html>
